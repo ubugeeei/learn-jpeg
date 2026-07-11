@@ -1,0 +1,54 @@
+package jpeg
+
+import java.awt.image.BufferedImage
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
+import javax.imageio.ImageIO
+
+class CodecSuite extends munit.FunSuite:
+  test("encoder emits a complete marker stream"):
+    val encoded = JpegEncoder.encode(GrayImage(8, 8, Seq.fill(64)(128)))
+    val unsigned = encoded.toSeq.map(_ & 0xff)
+    assertEquals(unsigned.take(2), Seq(0xff, 0xd8))
+    assertEquals(unsigned.takeRight(2), Seq(0xff, 0xd9))
+    assert(unsigned.sliding(2).contains(Seq(0xff, 0xc0)))
+    assert(unsigned.sliding(2).contains(Seq(0xff, 0xda)))
+
+  test("constant images round-trip exactly"):
+    for value <- Seq(0, 32, 128, 200, 255) do
+      val source = GrayImage(13, 9, Seq.fill(13 * 9)(value))
+      val decoded = JpegDecoder.decode(JpegEncoder.encode(source))
+      assertEquals(decoded.width, source.width)
+      assertEquals(decoded.height, source.height)
+      assertEquals((for y <- 0 until 9; x <- 0 until 13 yield decoded(x, y)).toSet, Set(value))
+
+  test("gradient round-trip has bounded error"):
+    val source = GrayImage(17, 11, for y <- 0 until 11; x <- 0 until 17 yield (x * 9 + y * 5) & 0xff)
+    val decoded = JpegDecoder.decode(JpegEncoder.encode(source))
+    val errors = for y <- 0 until 11; x <- 0 until 17 yield math.abs(source(x, y) - decoded(x, y))
+    assert(errors.max <= 22, s"maximum error was ${errors.max}")
+    assert(errors.sum.toDouble / errors.size <= 5.0)
+
+  test("encoded stream is readable by the JDK JPEG implementation"):
+    val encoded = JpegEncoder.encode(GrayImage(9, 7, for y <- 0 until 7; x <- 0 until 9 yield x * 20 + y))
+    val image = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
+    assertEquals(image.getWidth, 9)
+    assertEquals(image.getHeight, 7)
+
+  test("decoder reads a grayscale JPEG from the JDK implementation"):
+    val image = BufferedImage(8, 8, BufferedImage.TYPE_BYTE_GRAY)
+    for y <- 0 until 8; x <- 0 until 8 do image.getRaster.setSample(x, y, 0, 128)
+    val output = ByteArrayOutputStream()
+    assert(ImageIO.write(image, "jpeg", output))
+    val decoded = JpegDecoder.decode(IArray.from(output.toByteArray))
+    assertEquals((for y <- 0 until 8; x <- 0 until 8 yield decoded(x, y)).toSet, Set(128))
+
+  test("decoder rejects a progressive frame explicitly"):
+    val encoded = JpegEncoder.encode(GrayImage(8, 8, Seq.fill(64)(0))).asInstanceOf[Array[Byte]].clone()
+    val sof = encoded.indices.find(i => i + 1 < encoded.length && encoded(i) == 0xff.toByte && encoded(i + 1) == 0xc0.toByte).get
+    encoded(sof + 1) = 0xc2.toByte
+    val error = intercept[JpegError](JpegDecoder.decode(IArray.from(encoded)))
+    assert(error.message.contains("unsupported JPEG frame"))
+
+  test("decoder rejects truncated input with a domain error"):
+    val error = intercept[JpegError](JpegDecoder.decode(IArray(0xff.toByte, 0xd8.toByte)))
+    assert(error.message.nonEmpty)

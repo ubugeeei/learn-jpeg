@@ -19,8 +19,8 @@ object Block:
   val Zero: Block = Block(Seq.fill(Area)(0))
 
   extension (block: Block)
-    inline def apply(row: Int, column: Int): Int = block(row * Side + column)
-    inline def apply(index: Int): Int = block(index)
+    inline def apply(row: Int, column: Int): Int = block.asInstanceOf[Array[Int]](row * Side + column)
+    inline def apply(index: Int): Int = block.asInstanceOf[Array[Int]](index)
     def values: IndexedSeq[Int] = IndexedSeq.tabulate(Area)(block(_))
     def map(f: Int => Int): Block = Block(values.map(f))
 
@@ -60,4 +60,3 @@ object GrayImage:
     require(values.length == width * height, "sample count must equal width × height")
     require(values.forall(v => v >= 0 && v <= 255), "samples must be 8-bit values")
     new GrayImage(dimensions, IArray.from(values.map(_.toByte)))
-

@@ -59,4 +59,4 @@ object Quantization:
     require(values.size == 64)
     val result = Array.fill(64)(0)
     ZigZag.indices.foreach(i => result(ZigZag(i)) = values(i))
-    Block(result)
+    Block(result.toIndexedSeq)

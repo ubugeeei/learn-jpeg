@@ -84,6 +84,12 @@ final class BitReader(bytes: IArray[Byte]):
       bitIndex = 0
     bit
 
+  def read(length: Int): Int =
+    require(length >= 0 && length <= 16)
+    var value = 0
+    for _ <- 0 until length do value = (value << 1) | readBit()
+    value
+
 /** Baseline coefficient magnitude representation (T.81 F.1.2.1 and F.1.2.2). */
 object Magnitude:
   def category(value: Int): Int =
@@ -99,4 +105,3 @@ object Magnitude:
 
 /** Structured parse failure rather than an incidental indexing exception. */
 final case class JpegError(message: String) extends RuntimeException(message)
-

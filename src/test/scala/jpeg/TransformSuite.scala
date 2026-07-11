@@ -3,7 +3,7 @@ package jpeg
 class TransformSuite extends munit.FunSuite:
   test("a constant block has only a DC coefficient"):
     val transformed = Dct.forward(Block(Seq.fill(64)(128)))
-    assertEquals(transformed, Block.Zero)
+    assertEquals(transformed.values, Block.Zero.values)
 
   test("FDCT and IDCT round-trip representative samples"):
     val source = Block((0 until 64).map(i => (i * 37 + 11) & 0xff))
@@ -13,7 +13,7 @@ class TransformSuite extends munit.FunSuite:
 
   test("zig-zag and natural order are inverses"):
     val source = Block(0 until 64)
-    assertEquals(Quantization.natural(Quantization.zigZag(source)), source)
+    assertEquals(Quantization.natural(Quantization.zigZag(source)).values, source.values)
 
   test("image blocks extend the bottom and right edges"):
     val image = GrayImage(2, 2, Seq(1, 2, 3, 4))
