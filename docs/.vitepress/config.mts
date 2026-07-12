@@ -43,7 +43,8 @@ export default defineConfig({
           { text: "Decoder", link: "/07-decoder" },
           { text: "Testing", link: "/08-testing" },
           { text: "Color JPEG", link: "/30-codec/04-color" },
-          { text: "Quality", link: "/30-codec/05-quality" }
+          { text: "Quality", link: "/30-codec/05-quality" },
+          { text: "Production I/O", link: "/30-codec/06-production-io" }
         ]
       },
       {
