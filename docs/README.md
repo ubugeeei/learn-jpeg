@@ -48,4 +48,4 @@ keep the learner oriented inside the finished architecture.
 - baseline 4:4:4 RGB/JFIF encoder;
 - ImageIO interoperability and malformed-input tests.
 
-Start at [Why build JPEG?](00-introduction/01-why-jpeg.md).
+Start at [No image expertise required](00-introduction/00-no-prerequisites.md).

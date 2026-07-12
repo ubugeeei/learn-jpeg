@@ -14,6 +14,7 @@ export default defineConfig({
       {
         text: "0. Introduction",
         items: [
+          { text: "No prerequisites", link: "/00-introduction/00-no-prerequisites" },
           { text: "Why build JPEG?", link: "/00-introduction/01-why-jpeg" },
           { text: "Run the project", link: "/00-introduction/02-setup" },
           { text: "Learning roadmap", link: "/00-introduction/03-roadmap" }

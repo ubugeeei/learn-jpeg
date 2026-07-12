@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="270" viewBox="0 0 760 270" role="img" aria-labelledby="title desc">
+  <title id="title">An image as sample values</title>
+  <desc id="desc">A four by four grayscale grid maps numbers from zero to 255 onto dark through light squares.</desc>
+  <rect width="760" height="270" rx="16" fill="#f6f7f9"/>
+  <g font-family="system-ui, sans-serif" fill="#202124">
+    <text x="28" y="38" font-size="20" font-weight="600">numbers in memory</text>
+    <text x="478" y="38" font-size="20" font-weight="600">what we see</text>
+  </g>
+  <g font-family="ui-monospace, monospace" font-size="18" text-anchor="middle" dominant-baseline="middle" fill="#202124" stroke="#8a9099">
+    <rect x="28" y="58" width="52" height="44" fill="#fff"/><text x="54" y="80" stroke="none">0</text>
+    <rect x="80" y="58" width="52" height="44" fill="#fff"/><text x="106" y="80" stroke="none">32</text>
+    <rect x="132" y="58" width="52" height="44" fill="#fff"/><text x="158" y="80" stroke="none">96</text>
+    <rect x="184" y="58" width="52" height="44" fill="#fff"/><text x="210" y="80" stroke="none">160</text>
+    <rect x="28" y="102" width="52" height="44" fill="#fff"/><text x="54" y="124" stroke="none">24</text>
+    <rect x="80" y="102" width="52" height="44" fill="#fff"/><text x="106" y="124" stroke="none">72</text>
+    <rect x="132" y="102" width="52" height="44" fill="#fff"/><text x="158" y="124" stroke="none">128</text>
+    <rect x="184" y="102" width="52" height="44" fill="#fff"/><text x="210" y="124" stroke="none">200</text>
+    <rect x="28" y="146" width="52" height="44" fill="#fff"/><text x="54" y="168" stroke="none">48</text>
+    <rect x="80" y="146" width="52" height="44" fill="#fff"/><text x="106" y="168" stroke="none">110</text>
+    <rect x="132" y="146" width="52" height="44" fill="#fff"/><text x="158" y="168" stroke="none">176</text>
+    <rect x="184" y="146" width="52" height="44" fill="#fff"/><text x="210" y="168" stroke="none">232</text>
+    <rect x="28" y="190" width="52" height="44" fill="#fff"/><text x="54" y="212" stroke="none">80</text>
+    <rect x="80" y="190" width="52" height="44" fill="#fff"/><text x="106" y="212" stroke="none">144</text>
+    <rect x="132" y="190" width="52" height="44" fill="#fff"/><text x="158" y="212" stroke="none">216</text>
+    <rect x="184" y="190" width="52" height="44" fill="#fff"/><text x="210" y="212" stroke="none">255</text>
+  </g>
+  <path d="M270 145h150" stroke="#626a73" stroke-width="3" marker-end="url(#arrow)"/>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0 0l10 5-10 5z" fill="#626a73"/></marker></defs>
+  <g stroke="#8a9099">
+    <rect x="478" y="58" width="52" height="44" fill="#000"/><rect x="530" y="58" width="52" height="44" fill="#202020"/><rect x="582" y="58" width="52" height="44" fill="#606060"/><rect x="634" y="58" width="52" height="44" fill="#a0a0a0"/>
+    <rect x="478" y="102" width="52" height="44" fill="#181818"/><rect x="530" y="102" width="52" height="44" fill="#484848"/><rect x="582" y="102" width="52" height="44" fill="#808080"/><rect x="634" y="102" width="52" height="44" fill="#c8c8c8"/>
+    <rect x="478" y="146" width="52" height="44" fill="#303030"/><rect x="530" y="146" width="52" height="44" fill="#6e6e6e"/><rect x="582" y="146" width="52" height="44" fill="#b0b0b0"/><rect x="634" y="146" width="52" height="44" fill="#e8e8e8"/>
+    <rect x="478" y="190" width="52" height="44" fill="#505050"/><rect x="530" y="190" width="52" height="44" fill="#909090"/><rect x="582" y="190" width="52" height="44" fill="#d8d8d8"/><rect x="634" y="190" width="52" height="44" fill="#fff"/>
+  </g>
+</svg>

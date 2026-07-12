@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="230" viewBox="0 0 900 230" role="img" aria-labelledby="title desc">
+  <title id="title">JPEG file anatomy</title>
+  <desc id="desc">A JPEG file is shown as ordered labeled boxes from start marker through tables, frame, scan, compressed data, and end marker.</desc>
+  <rect width="900" height="230" rx="16" fill="#f6f7f9"/>
+  <g font-family="system-ui, sans-serif" fill="#202124">
+    <text x="30" y="40" font-size="20" font-weight="600">a JPEG file, from first byte to last byte</text>
+    <g text-anchor="middle">
+      <rect x="30" y="75" width="70" height="70" rx="8" fill="#dcecff" stroke="#6b91bd"/><text x="65" y="105" font-size="17" font-weight="600">SOI</text><text x="65" y="128" font-size="12">start</text>
+      <rect x="108" y="75" width="105" height="70" rx="8" fill="#e8e5ff" stroke="#8c82bd"/><text x="160" y="105" font-size="17" font-weight="600">APP0</text><text x="160" y="128" font-size="12">JFIF label</text>
+      <rect x="221" y="75" width="105" height="70" rx="8" fill="#fff0d8" stroke="#b49059"/><text x="273" y="105" font-size="17" font-weight="600">DQT</text><text x="273" y="128" font-size="12">rounding table</text>
+      <rect x="334" y="75" width="105" height="70" rx="8" fill="#e2f4e7" stroke="#70a17b"/><text x="386" y="105" font-size="17" font-weight="600">SOF0</text><text x="386" y="128" font-size="12">image shape</text>
+      <rect x="447" y="75" width="105" height="70" rx="8" fill="#f9e2ea" stroke="#ad7185"/><text x="499" y="105" font-size="17" font-weight="600">DHT</text><text x="499" y="128" font-size="12">code table</text>
+      <rect x="560" y="75" width="90" height="70" rx="8" fill="#dcecff" stroke="#6b91bd"/><text x="605" y="105" font-size="17" font-weight="600">SOS</text><text x="605" y="128" font-size="12">scan starts</text>
+      <rect x="658" y="75" width="135" height="70" rx="8" fill="#e5e8eb" stroke="#777f87"/><text x="725" y="105" font-size="17" font-weight="600">compressed</text><text x="725" y="128" font-size="12">image bits</text>
+      <rect x="801" y="75" width="70" height="70" rx="8" fill="#dcecff" stroke="#6b91bd"/><text x="836" y="105" font-size="17" font-weight="600">EOI</text><text x="836" y="128" font-size="12">end</text>
+    </g>
+    <text x="30" y="185" font-size="14" fill="#525960">Headers explain how to read the compressed bits. They are not pixel data themselves.</text>
+  </g>
+</svg>

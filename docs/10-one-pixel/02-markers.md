@@ -4,6 +4,12 @@ A JPEG stream is not a flat struct. It is a sequence of markers, some carrying
 length-delimited payloads and one (`SOS`) introducing entropy-coded bytes whose
 end is detected by marker rules.
 
+![The major sections of a JPEG file in byte order](/diagrams/file-anatomy.svg)
+
+A **marker** is a two-byte signpost. It tells the decoder what kind of information
+comes next. A **segment** is that signpost plus its attached payload. Think of a
+marker as a chapter heading and its segment as the chapter contents.
+
 ## Minimum useful sequence
 
 ```text
