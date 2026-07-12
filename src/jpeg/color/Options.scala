@@ -25,7 +25,16 @@ object Quality:
       val factor = if quality < 50 then 5000 / quality else 200 - quality * 2
       table.map(entry => math.max(1, math.min(255, (entry * factor + 50) / 100)))
 
-/** Encoding choices. More options can be added without widening the codec's primary `encode(image)`
-  * learning path.
-  */
-final case class EncoderOptions(quality: Quality = Quality.Default)
+/** Resolution of the two color-difference planes in an encoded color image. */
+enum ChromaSubsampling:
+  /** One Cb and Cr sample per pixel: JPEG sampling factors 1×1, 1×1, 1×1. */
+  case FullResolution
+
+  /** One Cb and Cr sample per 2×2 pixels: JPEG sampling factors 2×2, 1×1, 1×1. */
+  case HalfBothAxes
+
+/** Validated policy choices for JPEG encoding. */
+final case class EncoderOptions(
+    quality: Quality = Quality.Default,
+    chromaSubsampling: ChromaSubsampling = ChromaSubsampling.HalfBothAxes
+)

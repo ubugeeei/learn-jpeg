@@ -45,7 +45,8 @@ class ColorAndOptionsSuite extends munit.FunSuite:
         x <- 0 until 13
       yield Rgb(x * 19, y * 27, (x * 11 + y * 7) & 0xff)
     )
-    val encoded = JpegEncoder.encode(image, EncoderOptions(Quality(90)))
+    val encoded = JpegEncoder
+      .encode(image, EncoderOptions(Quality(90), ChromaSubsampling.FullResolution))
     val decoded = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
     assertEquals(decoded.getWidth, 13)
     assertEquals(decoded.getHeight, 9)
@@ -62,7 +63,9 @@ class ColorAndOptionsSuite extends munit.FunSuite:
         x <- 0 until 17
       yield Rgb(x * 13, y * 21, (x * 7 + y * 9) & 0xff)
     )
-    val decoded = JpegDecoder.decodeRgb(JpegEncoder.encode(source, EncoderOptions(Quality(95))))
+    val decoded = JpegDecoder.decodeRgb(
+      JpegEncoder.encode(source, EncoderOptions(Quality(95), ChromaSubsampling.FullResolution))
+    )
     val errors  =
       for y <- 0 until source.height; x <- 0 until source.width yield
         val expected = source(x, y)
@@ -90,3 +93,28 @@ class ColorAndOptionsSuite extends munit.FunSuite:
     assert(math.abs(center.red - 127) <= 12)
     assert(math.abs(center.green - 127) <= 12)
     assert(math.abs(center.blue - 127) <= 12)
+
+  test("4:2:0 encoder handles dimensions smaller than one MCU and odd edges"):
+    val dimensions = Seq(1 -> 1, 7 -> 5, 16 -> 16, 17 -> 19)
+    dimensions.foreach: (width, height) =>
+      val source  = RgbImage(
+        width,
+        height,
+        for y <- 0 until height; x <- 0 until width yield Rgb(x * 9, y * 7, 80)
+      )
+      val encoded = JpegEncoder
+        .encode(source, EncoderOptions(Quality(90), ChromaSubsampling.HalfBothAxes))
+      val decoded = JpegDecoder.decodeRgb(encoded)
+      assertEquals(decoded.width -> decoded.height, width -> height)
+
+  test("4:2:0 is smaller than 4:4:4 for a photographic-size color gradient"):
+    val source     = RgbImage(
+      128,
+      96,
+      for y <- 0 until 96; x <- 0 until 128 yield Rgb(x * 2, y * 2, (x + y) & 0xff)
+    )
+    val full       = JpegEncoder
+      .encode(source, EncoderOptions(Quality(85), ChromaSubsampling.FullResolution))
+    val subsampled = JpegEncoder
+      .encode(source, EncoderOptions(Quality(85), ChromaSubsampling.HalfBothAxes))
+    assert(subsampled.length < full.length)

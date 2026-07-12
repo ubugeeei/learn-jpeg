@@ -24,18 +24,28 @@ object JpegEncoder:
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
-  /** Encodes an RGB image as a three-component, full-resolution (4:4:4) JFIF stream. Keeping 4:4:4
-    * as the first color milestone makes MCU ordering visible before introducing chroma resampling.
-    */
+  /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
     val quantizer  = options.quality.scale(Quantization.Luminance)
-    val converted  =
-      (for y <- 0 until image.height; x <- 0 until image.width yield YCbCr.fromRgb(image(x, y)))
-    val components = IndexedSeq(
-      GrayImage(image.width, image.height, converted.map(_.y)),
-      GrayImage(image.width, image.height, converted.map(_.cb)),
-      GrayImage(image.width, image.height, converted.map(_.cr))
-    )
+    val converted  = IndexedSeq
+      .tabulate(image.height, image.width)((y, x) => YCbCr.fromRgb(image(x, y)))
+    val components = options.chromaSubsampling match
+      case ChromaSubsampling.FullResolution => IndexedSeq(
+          component(image.width, image.height, converted)(_.y),
+          component(image.width, image.height, converted)(_.cb),
+          component(image.width, image.height, converted)(_.cr)
+        )
+      case ChromaSubsampling.HalfBothAxes   =>
+        val paddedWidth  = (image.width + 15) / 16 * 16
+        val paddedHeight = (image.height + 15) / 16 * 16
+        IndexedSeq(
+          component(paddedWidth, paddedHeight, converted)(_.y),
+          downsample(converted)(_.cb),
+          downsample(converted)(_.cr)
+        )
+    val ySampling  = options.chromaSubsampling match
+      case ChromaSubsampling.FullResolution => 0x11
+      case ChromaSubsampling.HalfBothAxes   => 0x22
     val out        = ByteArrayOutputStream()
     marker(out, 0xd8)
     segment(out, 0xe0, Seq(0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0))
@@ -43,12 +53,15 @@ object JpegEncoder:
     segment(
       out,
       0xc0,
-      Seq(8) ++ u16(image.height) ++ u16(image.width) ++ Seq(3, 1, 0x11, 0, 2, 0x11, 0, 3, 0x11, 0)
+      Seq(8) ++ u16(image.height) ++ u16(image.width) ++
+        Seq(3, 1, ySampling, 0, 2, 0x11, 0, 3, 0x11, 0)
     )
     dht(out, 0, 0, StandardTables.LuminanceDc)
     dht(out, 1, 0, StandardTables.LuminanceAc)
     segment(out, 0xda, Seq(3, 1, 0, 2, 0, 3, 0, 0, 63, 0))
-    out.write(colorEntropy(components, quantizer).asInstanceOf[Array[Byte]])
+    out.write(
+      colorEntropy(components, quantizer, options.chromaSubsampling).asInstanceOf[Array[Byte]]
+    )
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
@@ -80,14 +93,65 @@ object JpegEncoder:
       if run > 0 then StandardTables.LuminanceAc.write(0x00, bits)
     bits.result()
 
-  private def colorEntropy(components: IndexedSeq[GrayImage], quantizer: Block): IArray[Byte] =
+  private def colorEntropy(
+      components: IndexedSeq[GrayImage],
+      quantizer: Block,
+      subsampling: ChromaSubsampling
+  ): IArray[Byte] =
     val bits       = BitWriter()
     val previousDc = Array.fill(components.size)(0)
     val blocks     = components.map(_.blocks)
-    for blockIndex <- blocks.head.indices; component <- components.indices do
-      previousDc(component) =
-        writeBlock(blocks(component)(blockIndex), quantizer, previousDc(component), bits)
+    subsampling match
+      case ChromaSubsampling.FullResolution =>
+        for blockIndex <- blocks.head.indices; component <- components.indices do
+          previousDc(component) =
+            writeBlock(blocks(component)(blockIndex), quantizer, previousDc(component), bits)
+      case ChromaSubsampling.HalfBothAxes   =>
+        val lumaColumns = components.head.dimensions.blockColumns
+        for
+          mcuY <- 0 until components(1).dimensions.blockRows
+          mcuX <- 0 until components(1).dimensions.blockColumns
+        do
+          for localY <- 0 until 2; localX <- 0 until 2 do
+            val index = (mcuY * 2 + localY) * lumaColumns + mcuX * 2 + localX
+            previousDc(0) = writeBlock(blocks(0)(index), quantizer, previousDc(0), bits)
+          for component <- 1 to 2 do
+            val index = mcuY * components(component).dimensions.blockColumns + mcuX
+            previousDc(component) =
+              writeBlock(blocks(component)(index), quantizer, previousDc(component), bits)
     bits.result()
+
+  private def component(width: Int, height: Int, source: IndexedSeq[IndexedSeq[YCbCr]])(
+      select: YCbCr => Int
+  ): GrayImage = GrayImage(
+    width,
+    height,
+    for y <- 0 until height; x <- 0 until width
+    yield select(source(math.min(y, source.size - 1))(math.min(x, source.head.size - 1)))
+  )
+
+  /** Box-filters chroma to half width and height, extending odd edges before averaging. */
+  private def downsample(source: IndexedSeq[IndexedSeq[YCbCr]])(select: YCbCr => Int): GrayImage =
+    val sourceHeight = source.size
+    val sourceWidth  = source.head.size
+    val width        = (sourceWidth + 1) / 2
+    val height       = (sourceHeight + 1) / 2
+    GrayImage(
+      width,
+      height,
+      for
+        y <- 0 until height
+        x <- 0 until width
+      yield
+        val values =
+          for
+            dy <- 0 until 2
+            dx <- 0 until 2
+          yield select(
+            source(math.min(y * 2 + dy, sourceHeight - 1))(math.min(x * 2 + dx, sourceWidth - 1))
+          )
+        (values.sum + 2) / 4
+    )
 
   private def writeBlock(samples: Block, quantizer: Block, previousDc: Int, bits: BitWriter): Int =
     val ordered    = Quantization.zigZag(Quantization.quantize(Dct.forward(samples), quantizer))
