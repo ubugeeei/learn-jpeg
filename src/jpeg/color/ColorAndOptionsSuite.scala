@@ -8,6 +8,41 @@ import javax.imageio.ImageIO
 class ColorAndOptionsSuite extends munit.FunSuite:
   test("quality 50 preserves the Annex K table"):
     assertEquals(Quality(50).scale(Quantization.Luminance).values, Quantization.Luminance.values)
+    assertEquals(
+      Quality(50).scale(Quantization.Chrominance).values,
+      Quantization.Chrominance.values
+    )
+
+  test("color streams declare distinct Annex K luminance and chrominance tables"):
+    val source  = RgbImage(8, 8, Seq.fill(64)(Rgb(30, 80, 140)))
+    val encoded = JpegEncoder
+      .encode(source, EncoderOptions(Quality(50), ChromaSubsampling.FullResolution))
+      .asInstanceOf[Array[Byte]]
+    val dqt     = markerOffsets(encoded, 0xdb)
+
+    assertEquals(dqt.size, 2)
+    assertEquals(encoded(dqt(0) + 4) & 0xff, 0)
+    assertEquals(encoded(dqt(1) + 4) & 0xff, 1)
+    assertEquals(
+      encoded.slice(dqt(0) + 5, dqt(0) + 69).map(_ & 0xff).toIndexedSeq,
+      Quantization.zigZag(Quantization.Luminance)
+    )
+    assertEquals(
+      encoded.slice(dqt(1) + 5, dqt(1) + 69).map(_ & 0xff).toIndexedSeq,
+      Quantization.zigZag(Quantization.Chrominance)
+    )
+
+  test("SOF0 routes Y to table 0 and both chroma components to table 1"):
+    val source  = RgbImage(8, 8, Seq.fill(64)(Rgb(30, 80, 140)))
+    val encoded = JpegEncoder.encode(source).asInstanceOf[Array[Byte]]
+    val sof     = markerOffsets(encoded, 0xc0).head
+
+    val descriptors = (0 until 3).map: component =>
+      val offset = sof + 10 + component * 3
+      (encoded(offset) & 0xff, encoded(offset + 1) & 0xff, encoded(offset + 2) & 0xff)
+    assertEquals(descriptors.map((id, _, table) => id -> table), Seq(1 -> 0, 2 -> 1, 3 -> 1))
+    assertEquals(JpegDecoder.decodeRgb(IArray.from(encoded)).dimensions, source.dimensions)
+    assertEquals(ImageIO.read(ByteArrayInputStream(encoded)).getWidth, source.width)
 
   test("quality endpoints clamp quantizers to legal 8-bit values"):
     assert(Quality.Minimum.scale(Quantization.Luminance).values.forall(v => v >= 1 && v <= 255))
@@ -216,3 +251,8 @@ class ColorAndOptionsSuite extends munit.FunSuite:
     val nearest = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Nearest)
     val smooth  = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Bilinear)
     assertEquals(nearest.pixels.toSeq, smooth.pixels.toSeq)
+
+  private def markerOffsets(bytes: Array[Byte], marker: Int): IndexedSeq[Int] = bytes.indices
+    .filter(index =>
+      index + 1 < bytes.length && bytes(index) == 0xff.toByte && (bytes(index + 1) & 0xff) == marker
+    ).toIndexedSeq

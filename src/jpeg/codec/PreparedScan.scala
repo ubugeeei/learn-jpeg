@@ -40,7 +40,7 @@ private[jpeg] object PreparedScan:
     */
   def apply(
       sourceMcus: IndexedSeq[IndexedSeq[(Int, Block)]],
-      quantizer: Block,
+      quantizers: IndexedSeq[Block],
       restartInterval: Int
   ): PreparedScan =
     val componentCount = sourceMcus.flatten.map(_._1).max + 1
@@ -51,6 +51,8 @@ private[jpeg] object PreparedScan:
       if restartInterval > 0 && mcuIndex > 0 && mcuIndex % restartInterval == 0 then
         java.util.Arrays.fill(predictors, 0)
       mcu.map: (component, samples) =>
+        val quantizer  = quantizers.lift(component).getOrElse:
+          throw JpegError(s"missing quantization table for component $component")
         val ordered    = Quantization.zigZag(Quantization.quantize(Dct.forward(samples), quantizer))
         val difference = ordered.head - predictors(component)
         predictors(component) = ordered.head

@@ -14,7 +14,7 @@ object JpegEncoder:
     val quantizer          = options.quality.scale(Quantization.Luminance)
     val scan               = PreparedScan(
       image.blocks.map(block => IndexedSeq(0 -> block)),
-      quantizer,
+      IndexedSeq(quantizer),
       options.restartInterval
     )
     val (dcTable, acTable) = entropyTables(scan, options.optimizeHuffmanTables)
@@ -37,7 +37,8 @@ object JpegEncoder:
 
   /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
-    val quantizer          = options.quality.scale(Quantization.Luminance)
+    val luminanceQuantizer = options.quality.scale(Quantization.Luminance)
+    val chromaQuantizer    = options.quality.scale(Quantization.Chrominance)
     val converted          = IndexedSeq
       .tabulate(image.height, image.width)((y, x) => YCbCr.fromRgb(image(x, y)))
     val components         = options.chromaSubsampling match
@@ -67,19 +68,20 @@ object JpegEncoder:
       case ChromaSubsampling.HalfBothAxes   => 0x22
     val scan               = PreparedScan(
       colorMcus(components, components.map(_.blocks), options.chromaSubsampling),
-      quantizer,
+      IndexedSeq(luminanceQuantizer, chromaQuantizer, chromaQuantizer),
       options.restartInterval
     )
     val (dcTable, acTable) = entropyTables(scan, options.optimizeHuffmanTables)
     val out                = ByteArrayOutputStream()
     marker(out, 0xd8)
     segment(out, 0xe0, Seq(0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0))
-    segment(out, 0xdb, 0 +: Quantization.zigZag(quantizer))
+    segment(out, 0xdb, 0 +: Quantization.zigZag(luminanceQuantizer))
+    segment(out, 0xdb, 1 +: Quantization.zigZag(chromaQuantizer))
     segment(
       out,
       0xc0,
       Seq(8) ++ u16(image.height) ++ u16(image.width) ++
-        Seq(3, 1, ySampling, 0, 2, 0x11, 0, 3, 0x11, 0)
+        Seq(3, 1, ySampling, 0, 2, 0x11, 1, 3, 0x11, 1)
     )
     dht(out, 0, 0, dcTable)
     dht(out, 1, 0, acTable)
