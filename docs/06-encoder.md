@@ -95,8 +95,8 @@ chroma resolution; 4:4:4 preserves color edges in diagrams and screenshots.
 
 ## Known encoder limitations
 
-The grayscale encoder writes optional restart intervals; color restart emission
-is still pending. The encoder does not yet optimize Huffman tables, embed Exif/ICC
-metadata, or emit progressive scans. These are recorded explicitly in
+The encoder writes optional restart intervals for grayscale and every color
+sampling mode. It does not yet optimize Huffman tables, embed Exif/ICC metadata,
+or emit progressive scans. These are recorded explicitly in
 the [support matrix](reference/support-matrix.md), not hidden behind a generic
 “JPEG supported” claim.

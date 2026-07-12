@@ -60,18 +60,19 @@ val options = EncoderOptions(
 val bytes = JpegEncoder.encode(grayImage, options)
 ```
 
-Zero disables restart markers. Values `1..65535` are legal. Grayscale encoding
-currently emits restart intervals; color encoding rejects a non-zero interval
-until its shared MCU writer is completed. The decoder supports restart intervals
-for both grayscale and color scans.
+Zero disables restart markers. Values `1..65535` are legal. Grayscale and all
+three color sampling modes share the same MCU-boundary restart writer. The decoder
+supports restart intervals for both grayscale and color scans.
 
 ## Declarative tests
 
-The suite checks intervals 1, 2, 4, and 7 over a multi-block image. It asserts:
+The grayscale suite checks intervals 1, 2, 4, and 7. The color suite checks
+intervals 1, 2, and 5 across 4:4:4, 4:2:2, and 4:2:0. It asserts:
 
 - at least one marker is present;
 - marker codes cycle from RST0;
 - decoded dimensions and pixels remain valid;
 - changing RST0 to RST3 produces a specific `JpegError`.
 
-The support matrix keeps the remaining color-encoder gap visible.
+Color output is also opened by ImageIO so a symmetric restart bug cannot pass only
+because our encoder and decoder made the same mistake.
