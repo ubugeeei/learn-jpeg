@@ -14,7 +14,12 @@ Cr =  0.500000 R - 0.418688 G - 0.081312 B + 128
 
 Human vision is generally more sensitive to fine luminance detail than fine
 chrominance detail. Once separated, JPEG can store fewer chroma samples. The
-encoder supports both full-resolution 4:4:4 and half-width/half-height 4:2:0.
+encoder supports full-resolution 4:4:4, half-horizontal 4:2:2, and half-both-axes 4:2:0.
+
+![How many chroma samples each subsampling mode retains](/diagrams/chroma-subsampling.svg)
+
+4:2:2 halves chroma only horizontally. `HalfHorizontal` writes Y sampling factor
+2×1 and averages pairs of Cb/Cr samples without reducing the plane height.
 
 ## Scala domain types
 
@@ -53,6 +58,6 @@ the decoder upsamples by nearest neighbor. Odd edges repeat their closest sample
 
 ## Executable checkpoint
 
-`ColorAndOptionsSuite` verifies reference colors, bounded RGB↔YCbCr rounding, and
-opens our three-component stream with ImageIO. Interoperability matters here:
-round-tripping through the same mistaken conversion would let symmetric bugs pass.
+`ColorAndOptionsSuite` verifies reference colors, bounded RGB↔YCbCr rounding,
+SOF0 sampling bytes for all three modes, odd dimensions, and independent ImageIO
+decoding. Interoperability matters here: symmetric bugs can pass self-round-trips.

@@ -35,7 +35,7 @@ returns a domain error instead of producing corrupt pixels.
 | JFIF YCbCr, three components | ✅ | ✅ | component identifiers 1, 2, 3 |
 | 4:4:4 sampling | ✅ | ✅ | full-resolution chroma |
 | 4:2:0 sampling | ✅ | ✅ | box-filter encode, nearest-neighbor decode |
-| 4:2:2 input | — | ✅ | sampling-factor-driven decoder |
+| 4:2:2 sampling | ✅ | ✅ | horizontal box-filter encode |
 | odd and partial MCU edges | ✅ | ✅ | nearest-edge extension |
 | one interleaved scan | ✅ | ✅ | common JFIF layout |
 | non-interleaved component scans | ◻ | ◻ | legal sequential JPEG, uncommon for JFIF |

@@ -42,7 +42,9 @@ spatial color resolution better than lower brightness resolution.
 MCU: [ Y ][ Cb ][ Cr ]
 ```
 
-`HalfBothAxes` (4:2:0) averages each 2×2 chroma neighborhood. One 16×16 MCU then
+`HalfHorizontal` (4:2:2) averages horizontal pairs. A 16×8 MCU contains two Y
+blocks, one Cb block, and one Cr block. `HalfBothAxes` (4:2:0) averages each 2×2
+chroma neighborhood. One 16×16 MCU then
 contains six blocks in this exact order:
 
 ```text
@@ -88,8 +90,8 @@ finishing the whole Y plane first. For each block:
 ## Public policy
 
 `EncoderOptions` currently exposes quality and chroma subsampling. The default is
-4:2:0 because it is the practical photographic choice. Selecting 4:4:4 is useful
-for diagrams, screenshots, or testing where color edges matter more than size.
+4:2:0 because it is the practical photographic choice. 4:2:2 preserves vertical
+chroma resolution; 4:4:4 preserves color edges in diagrams and screenshots.
 
 ## Known encoder limitations
 

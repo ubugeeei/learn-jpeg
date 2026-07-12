@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300" role="img" aria-labelledby="title desc">
+  <title id="title">4:4:4, 4:2:2 and 4:2:0 chroma sampling</title>
+  <desc id="desc">Three grids compare one chroma sample per pixel, per horizontal pair, and per two by two group.</desc>
+  <rect width="900" height="300" rx="16" fill="#f6f7f9"/>
+  <g font-family="system-ui,sans-serif" fill="#202124" text-anchor="middle">
+    <text x="150" y="40" font-size="22" font-weight="600">4:4:4</text><text x="450" y="40" font-size="22" font-weight="600">4:2:2</text><text x="750" y="40" font-size="22" font-weight="600">4:2:0</text>
+    <text x="150" y="250" font-size="15">8 chroma samples</text><text x="450" y="250" font-size="15">4 chroma samples</text><text x="750" y="250" font-size="15">2 chroma samples</text>
+  </g>
+  <g stroke="#727980" stroke-width="2">
+    <path fill="#dcecff" d="M42 70h216v120H42zM96 70v120M150 70v120M204 70v120M42 130h216"/>
+    <path fill="#e8e5ff" d="M342 70h216v120H342zM450 70v120M342 130h216"/>
+    <path fill="#e2f4e7" d="M642 70h216v120H642zM750 70v120"/>
+  </g>
+  <g fill="#3d4650"><circle cx="69" cy="100" r="7"/><circle cx="123" cy="100" r="7"/><circle cx="177" cy="100" r="7"/><circle cx="231" cy="100" r="7"/><circle cx="69" cy="160" r="7"/><circle cx="123" cy="160" r="7"/><circle cx="177" cy="160" r="7"/><circle cx="231" cy="160" r="7"/><circle cx="396" cy="100" r="7"/><circle cx="504" cy="100" r="7"/><circle cx="396" cy="160" r="7"/><circle cx="504" cy="160" r="7"/><circle cx="696" cy="130" r="7"/><circle cx="804" cy="130" r="7"/></g>
+  <text x="450" y="278" font-family="system-ui,sans-serif" font-size="13" text-anchor="middle" fill="#5d646b">A larger cell means one Cb or Cr sample represents more pixels.</text>
+</svg>
