@@ -50,7 +50,8 @@ export default defineConfig({
           { text: "Huffman optimization", link: "/30-codec/08-huffman-optimization" },
           { text: "Metadata", link: "/30-codec/09-metadata" },
           { text: "Defensive decoding", link: "/30-codec/10-defensive-decoding" },
-          { text: "Chroma upsampling", link: "/30-codec/11-chroma-upsampling" }
+          { text: "Chroma upsampling", link: "/30-codec/11-chroma-upsampling" },
+          { text: "Command line", link: "/30-codec/12-command-line" }
         ]
       },
       {
