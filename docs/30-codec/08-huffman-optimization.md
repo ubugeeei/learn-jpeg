@@ -54,10 +54,24 @@ Huffman trees could have the same cost.
 - a heavily skewed alphabet never exceeds 16 bits;
 - common symbols are not assigned longer codes than rare symbols.
 
-## Integration status
+## Prepared scans: avoiding duplicate work
 
-The length-limited optimizer is implemented and tested. Encoder integration is
-the next milestone: the encoder will prepare quantized MCU data once, collect DC
-and AC symbol histograms with restart resets, emit optimized DHT segments, and
-then write the same prepared scan. Until that connection lands, output continues
-to use the Annex K tables and the support matrix says so explicitly.
+`PreparedScan` performs DCT, quantization, DC prediction, zero-run splitting,
+EOB, and ZRL decisions exactly once. It stores entropy tokens grouped by MCU.
+Those tokens serve two consumers:
+
+1. frequency maps used by `HuffmanOptimizer`;
+2. the final bit writer using the generated tables.
+
+Restart boundaries reset predictors while preparing tokens and split bit writers
+while emitting them. Both phases use the same MCU index and interval, so the
+histogram describes the symbols that are actually written.
+
+## Public policy and measured effect
+
+`EncoderOptions.optimizeHuffmanTables` defaults to true. Setting it to false emits
+the Annex K tables, which is useful for teaching and comparisons. Tests encode a
+160×120 grayscale texture and a 128×96 color gradient in 4:4:4, 4:2:2, and 4:2:0.
+In every case optimized output is smaller, decodes locally, and remains readable
+by ImageIO. Tiny images can be larger after optimization because DHT overhead is
+fixed; the option leaves that trade-off under caller control.

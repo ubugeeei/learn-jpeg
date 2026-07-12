@@ -53,7 +53,7 @@ returns a domain error instead of producing corrupt pixels.
 | independent DC/AC selectors | ✅ | ✅ | selectors read from SOS |
 | custom input Huffman tables | — | ✅ | DHT payload drives decoder |
 | length-limited Huffman optimizer | ✅ | — | Annex K.2 redistribution tested |
-| optimized output table integration | ◻ | — | encoder currently uses Annex K examples |
+| optimized output table integration | ✅ | — | default; Annex K fallback is configurable |
 | byte stuffing | ✅ | ✅ | `FF` ↔ `FF 00` within entropy data |
 | EOB and ZRL | ✅ | ✅ | zero tail and 16-zero run symbols |
 | DC prediction per component | ✅ | ✅ | independent state for Y, Cb, Cr |

@@ -89,14 +89,15 @@ finishing the whole Y plane first. For each block:
 
 ## Public policy
 
-`EncoderOptions` currently exposes quality and chroma subsampling. The default is
+`EncoderOptions` exposes quality, chroma subsampling, restart interval, and
+Huffman optimization. The default is
 4:2:0 because it is the practical photographic choice. 4:2:2 preserves vertical
 chroma resolution; 4:4:4 preserves color edges in diagrams and screenshots.
 
 ## Known encoder limitations
 
-The encoder writes optional restart intervals for grayscale and every color
-sampling mode. It does not yet optimize Huffman tables, embed Exif/ICC metadata,
-or emit progressive scans. These are recorded explicitly in
+The encoder writes optional restart intervals and image-specific Huffman tables
+for grayscale and every color sampling mode. It does not yet embed Exif/ICC
+metadata or emit progressive scans. These are recorded explicitly in
 the [support matrix](reference/support-matrix.md), not hidden behind a generic
 “JPEG supported” claim.
