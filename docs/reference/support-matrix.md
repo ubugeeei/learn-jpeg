@@ -66,9 +66,10 @@ returns a domain error instead of producing corrupt pixels.
 | JFIF APP0 | ✅ | encoder emits version 1.01 density metadata |
 | unknown APPn | ✅ | safely skipped by bounded length |
 | COM | ✅ | safely skipped |
-| Exif APP1 metadata | ✅ | raw APP1 preserved; orientation parsed in II/MM order |
-| ICC APP2 profiles | ✅ | chunks validated, reordered, and assembled |
-| COM comments | ✅ | exposed as ISO-8859-1 strings |
+| Exif APP1 metadata | ✅ | raw APP1 rewritten; orientation parsed in II/MM order |
+| ICC APP2 profiles | ✅ | chunks validated, assembled, and preserved on rewrite |
+| unknown APPn | ✅ | payload bytes and relative metadata order preserved |
+| COM comments | ✅ | raw bytes preserved; ISO-8859-1 string view exposed |
 | Adobe APP14 / CMYK | ◻ | four-component frames rejected |
 | orientation | ◻ | pixel matrix is not rotated from Exif |
 

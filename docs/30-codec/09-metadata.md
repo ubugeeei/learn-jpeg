@@ -66,9 +66,9 @@ no profile because a color-management system could misinterpret them.
 ## Unknown application data is preserved
 
 `ApplicationSegment` retains marker code and immutable payload for every APPn
-segment, including conventions this project does not interpret. This makes the
-metadata model forward-compatible and allows future rewrite support without
-discarding vendor information.
+segment, including conventions this project does not interpret. `MetadataSegment`
+keeps APP and COM entries in original order, while interpreted fields are derived
+views over those authoritative bytes.
 
 ## Reading a document
 
@@ -82,8 +82,27 @@ The path or stream is read once under `DecoderOptions.maxInputBytes`; pixel and
 metadata parsers consume the same immutable bytes. Caller-owned streams remain
 open, while path methods close streams they create.
 
+## Re-encoding without discarding metadata
+
+```scala
+val document = Jpeg.readDocument(inputPath)
+Jpeg.write(document, outputPath, EncoderOptions(Quality(90)))
+```
+
+The encoder creates a fresh JFIF APP0 for the new pixel stream, then reinserts
+Exif, ICC chunks, unknown APP segments, and binary COM payloads in their preserved
+order. A JFIF segment from the source is omitted to avoid two competing JFIF
+headers. Every payload is checked against the JPEG maximum of 65,533 bytes before
+its two-byte length is written.
+
+Metadata preservation is byte-oriented. The encoder does not rewrite Exif width,
+height, thumbnail, or orientation fields after pixel changes. Applications that
+rotate or resize pixels should deliberately update or remove those tags rather
+than assuming preservation makes their semantic content current.
+
 ## Tests as contracts
 
 `MetadataSuite` uses synthetic segments to state behavior directly: both TIFF byte
 orders, unknown payload preservation, comments, out-of-order ICC assembly, missing
-chunks, duplicate chunks, and combined pixel/metadata reading.
+chunks, duplicate chunks, combined pixel/metadata reading, ordered rewrite, and
+oversized-segment rejection.
