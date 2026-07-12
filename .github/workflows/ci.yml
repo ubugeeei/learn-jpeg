@@ -19,3 +19,9 @@ jobs:
           cache: sbt
       - uses: sbt/setup-sbt@v1
       - run: sbt test
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm install
+      - run: npm run docs:build

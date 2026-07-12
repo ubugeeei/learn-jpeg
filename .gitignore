@@ -7,3 +7,6 @@ project/project/
 .scala-build/
 *.class
 *.jpg
+node_modules/
+docs/.vitepress/cache/
+docs/.vitepress/dist/

@@ -1,23 +1,51 @@
-# Build a JPEG Codec in Scala 3
+---
+layout: home
+title: learn-jpeg
+titleTemplate: Build JPEG from one pixel
+hero:
+  name: learn-jpeg
+  text: Build JPEG from one pixel
+  tagline: A standards-driven, executable book for implementing a baseline JPEG codec in Scala 3.
+  actions:
+    - theme: brand
+      text: Start with one pixel
+      link: /00-introduction/01-why-jpeg
+    - theme: alt
+      text: View the roadmap
+      link: /00-introduction/03-roadmap
+features:
+  - title: Build, do not merely use
+    details: Every abstraction is introduced only when the file format forces us to need it.
+  - title: Read the real standard
+    details: Chapters point to T.81 clauses, tables, figures, and JFIF color conventions.
+  - title: Make mistakes executable
+    details: Tests expose byte order, zig-zag, padding, sign extension, and interoperability traps.
+---
 
-This book develops a standards-oriented baseline JPEG codec from first
-principles. It is written to be read in order; every chapter pairs domain
-knowledge with executable Scala.
+## What this is
 
-## Primary references
+Most JPEG explanations jump from “split into 8×8 blocks” to a finished codec.
+That gap hides the interesting engineering: marker lengths, canonical Huffman
+codes, MCU ordering, signed magnitude values, edge extension, and the boundary
+between JPEG and JFIF.
 
-- [ITU-T T.81 | ISO/IEC 10918-1](https://www.w3.org/Graphics/JPEG/itu-t81.pdf)
-- [W3C JPEG overview](https://www.w3.org/Graphics/JPEG/)
+This book crosses that gap one working program at a time. The final library is
+small enough to read, but it is not pseudocode: the JDK's independent JPEG
+implementation reads our output, and our decoder reads its grayscale output.
 
-T.81 clause and figure references in this book refer to the linked PDF.
+The structure takes inspiration from [The chibivue Book](https://ubugeeei.github.io/chibivue/):
+begin with the smallest satisfying result, revisit it with deeper machinery, and
+keep the learner oriented inside the finished architecture.
 
-## Chapters
+## Current executable milestones
 
-1. [The JPEG interchange format](01-format.md)
-2. [Samples, level shifting, and 8×8 blocks](02-blocks.md)
-3. [The discrete cosine transform](03-dct.md)
-4. [Quantization and zig-zag order](04-quantization.md)
-5. [Huffman entropy coding](05-huffman.md)
-6. [Writing a baseline codestream](06-encoder.md)
-7. [Reading defensively](07-decoder.md)
-8. [Testing a lossy codec](08-testing.md)
+- validated grayscale and RGB raster types;
+- reference FDCT/IDCT with level shifting;
+- Annex K quantization and conventional quality scaling;
+- zig-zag serialization;
+- canonical Huffman construction and entropy bit I/O;
+- baseline grayscale encoder and defensive decoder;
+- baseline 4:4:4 RGB/JFIF encoder;
+- ImageIO interoperability and malformed-input tests.
+
+Start at [Why build JPEG?](00-introduction/01-why-jpeg.md).
