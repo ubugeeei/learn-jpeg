@@ -75,6 +75,7 @@ object JpegDecoder:
     if data.u8() != 8 then throw JpegError("only 8-bit sample precision is supported")
     val height     = data.u16()
     val width      = data.u16()
+    if width == 0 || height == 0 then throw JpegError("frame dimensions must be non-zero")
     val dimensions = Dimensions(width, height)
     if width.toLong * height > maximumPixels then
       throw JpegError(s"decoded image exceeds configured limit of $maximumPixels pixels")
@@ -88,25 +89,41 @@ object JpegDecoder:
       if component.horizontal < 1 || component.horizontal > 4 || component.vertical < 1 ||
         component.vertical > 4
       then throw JpegError("sampling factors must be in 1..4")
+      if component.quantizer > 3 then throw JpegError("baseline quantization table id must be 0..3")
       component
     if components.map(_.id).distinct.size != count then
       throw JpegError("duplicate frame component id")
+    if components.map(component => component.horizontal * component.vertical).sum > 10 then
+      throw JpegError("frame has more than ten data units per MCU")
     data.expectEnd()
     Frame(dimensions, components)
 
   private def parseDqt(data: Cursor, tables: mutable.Map[Int, Block]): Unit =
     while data.remaining > 0 do
-      val info = data.u8()
+      val info   = data.u8()
       if (info >>> 4) != 0 then throw JpegError("16-bit quantization tables are unsupported")
-      tables(info & 0x0f) = Quantization.natural(Seq.fill(64)(data.u8()))
+      val id     = info & 0x0f
+      if id > 3 then throw JpegError("baseline quantization table id must be 0..3")
+      val values = Seq.fill(64)(data.u8())
+      if values.contains(0) then throw JpegError("quantization table entries must be non-zero")
+      tables(id) = Quantization.natural(values)
 
   private def parseDht(data: Cursor, tables: mutable.Map[(Int, Int), HuffmanTable]): Unit =
     while data.remaining > 0 do
       val info       = data.u8()
       val tableClass = info >>> 4
       if tableClass > 1 then throw JpegError("invalid Huffman table class")
+      val id         = info & 0x0f
+      if id > 3 then throw JpegError("baseline Huffman table id must be 0..3")
       val counts     = Seq.fill(16)(data.u8())
-      tables((tableClass, info & 0x0f)) = HuffmanTable(counts, Seq.fill(counts.sum)(data.u8()))
+      val symbols    = Seq.fill(counts.sum)(data.u8())
+      if tableClass == 0 && symbols.exists(_ > 11) then
+        throw JpegError("baseline DC Huffman symbol must be a category in 0..11")
+      if tableClass == 1 && symbols.exists: symbol =>
+          val category = symbol & 0x0f
+          category > 10 || category == 0 && symbol != 0x00 && symbol != 0xf0
+      then throw JpegError("invalid baseline AC Huffman symbol")
+      tables((tableClass, id)) = HuffmanTable(counts, symbols)
 
   private def parseScan(data: Cursor, frame: Frame): Map[Int, Tables] =
     val count     = data.u8()
@@ -115,6 +132,8 @@ object JpegDecoder:
     val selectors = (0 until count).map: _ =>
       val id     = data.u8()
       val tables = data.u8()
+      if (tables >>> 4) > 3 || (tables & 0x0f) > 3 then
+        throw JpegError("baseline scan Huffman selectors must be 0..3")
       id -> Tables(tables >>> 4, tables & 0x0f)
     .toMap
     if selectors.size != count || selectors.keys.exists(id => !frame.components.exists(_.id == id))
@@ -201,6 +220,7 @@ object JpegDecoder:
   ): (Block, Int) =
     val ordered    = Array.fill(64)(0)
     val dcCategory = dc.read(input)
+    if dcCategory > 11 then throw JpegError("baseline DC category exceeds eleven bits")
     ordered(0) = previousDc + Magnitude.value(input.read(dcCategory), dcCategory)
     var index      = 1
     while index < 64 do
@@ -210,7 +230,8 @@ object JpegDecoder:
       else
         index += symbol >>> 4
         val category = symbol & 0x0f
-        if category == 0 || index >= 64 then throw JpegError("invalid AC run/category")
+        if category == 0 || category > 10 || index >= 64 then
+          throw JpegError("invalid baseline AC run/category")
         ordered(index) = Magnitude.value(input.read(category), category)
         index += 1
     if index > 64 then throw JpegError("AC run exceeds block")

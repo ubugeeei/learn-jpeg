@@ -8,8 +8,6 @@ import scala.collection.mutable
   * [[https://www.w3.org/Graphics/JPEG/itu-t81.pdf T.81 C.2]].
   */
 final class HuffmanTable private (val counts: IArray[Int], val symbols: IArray[Int]):
-  require(counts.length == 16 && counts.sum == symbols.length)
-
   private val encodings: Map[Int, (Int, Int)] =
     var code   = 0
     var offset = 0
@@ -45,7 +43,20 @@ final class HuffmanTable private (val counts: IArray[Int], val symbols: IArray[I
 
 object HuffmanTable:
   def apply(counts: Seq[Int], symbols: Seq[Int]): HuffmanTable =
-    require(counts.forall(_ >= 0) && symbols.forall(v => v >= 0 && v <= 255))
+    if counts.length != 16 || counts.exists(_ < 0) then
+      throw JpegError("Huffman table requires sixteen non-negative code counts")
+    if counts.sum != symbols.length then throw JpegError("Huffman symbol count does not match DHT")
+    if symbols.exists(value => value < 0 || value > 255) then
+      throw JpegError("Huffman symbols must be unsigned bytes")
+    if symbols.distinct.size != symbols.size then throw JpegError("duplicate Huffman symbol")
+    var code = 0
+    for length <- 1 to 16 do
+      val count = counts(length - 1)
+      val limit = 1 << length
+      if code + count > limit then throw JpegError("oversubscribed Huffman code space")
+      if count > 0 && code + count - 1 == limit - 1 then
+        throw JpegError("JPEG Huffman table contains a forbidden all-one code")
+      code = (code + count) << 1
     new HuffmanTable(IArray.from(counts), IArray.from(symbols))
 
 /** Entropy bit output with JPEG's mandatory `FF 00` byte stuffing (T.81 B.1.1.5). */
