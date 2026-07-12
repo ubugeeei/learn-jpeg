@@ -85,7 +85,8 @@ returns a domain error instead of producing corrupt pixels.
 | malformed segment lengths | ✅ | bounded cursor behavior |
 | external grayscale interoperability | ✅ | JDK ImageIO both directions |
 | external subsampled color decode | ✅ | JDK ImageIO 4:2:0 fixture |
-| fuzzing / corpus CI | ◻ | planned hardening work |
+| deterministic mutation CI | ✅ | grayscale/color bit flips reject via `JpegError` |
+| coverage-guided corpus fuzzing | ◻ | planned hardening infrastructure |
 | streaming entropy decode | ◻ | bounded full-input buffering today |
 
 ## Honest conclusion
