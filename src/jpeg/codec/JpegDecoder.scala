@@ -39,6 +39,7 @@ object JpegDecoder:
     val cursor               = Cursor(input.asInstanceOf[Array[Byte]])
     cursor.expectMarker(0xd8)
     var frame: Option[Frame] = None
+    var restartInterval      = 0
     val quantization         = mutable.Map.empty[Int, Block]
     val huffman              = mutable.Map.empty[(Int, Int), HuffmanTable]
     while true do
@@ -46,6 +47,10 @@ object JpegDecoder:
         case 0xd9                                 => throw JpegError("EOI occurred before a scan")
         case 0xdb                                 => parseDqt(cursor.segment(), quantization)
         case 0xc4                                 => parseDht(cursor.segment(), huffman)
+        case 0xdd                                 =>
+          val data = cursor.segment()
+          restartInterval = data.u16()
+          data.expectEnd()
         case 0xc0                                 => frame = Some(parseFrame(cursor.segment(), maximumPixels))
         case code @ (0xc1 | 0xc2 | 0xc3 | 0xc5 | 0xc6 | 0xc7 | 0xc9 | 0xca | 0xcb | 0xcd | 0xce |
             0xcf) =>
@@ -58,7 +63,8 @@ object JpegDecoder:
             selectors,
             cursor.entropyUntilEoi(),
             quantization.toMap,
-            huffman.toMap
+            huffman.toMap,
+            restartInterval
           )
         case code if code >= 0xd0 && code <= 0xd7 =>
           throw JpegError("restart marker outside entropy data")
@@ -121,36 +127,48 @@ object JpegDecoder:
   private def decodeScan(
       frame: Frame,
       selectors: Map[Int, Tables],
-      entropy: IArray[Byte],
+      entropy: EntropyData,
       quantizers: Map[Int, Block],
-      huffman: Map[(Int, Int), HuffmanTable]
+      huffman: Map[(Int, Int), HuffmanTable],
+      restartInterval: Int
   ): DecodedImage =
-    val maxH       = frame.components.map(_.horizontal).max
-    val maxV       = frame.components.map(_.vertical).max
-    val mcuColumns = (frame.dimensions.width + maxH * 8 - 1) / (maxH * 8)
-    val mcuRows    = (frame.dimensions.height + maxV * 8 - 1) / (maxV * 8)
-    val planes     = frame.components
+    val maxH           = frame.components.map(_.horizontal).max
+    val maxV           = frame.components.map(_.vertical).max
+    val mcuColumns     = (frame.dimensions.width + maxH * 8 - 1) / (maxH * 8)
+    val mcuRows        = (frame.dimensions.height + maxV * 8 - 1) / (maxV * 8)
+    val planes         = frame.components
       .map(c => c.id -> Plane(mcuColumns * c.horizontal * 8, mcuRows * c.vertical * 8)).toMap
-    val predictors = mutable.Map.from(frame.components.map(_.id -> 0))
-    val bits       = BitReader(entropy)
-    for mcuY <- 0 until mcuRows; mcuX <- 0 until mcuColumns; component <- frame.components do
-      val selected  = selectors(component.id)
-      val dc        = huffman
-        .getOrElse((0, selected.dc), throw JpegError(s"missing DC Huffman table ${selected.dc}"))
-      val ac        = huffman
-        .getOrElse((1, selected.ac), throw JpegError(s"missing AC Huffman table ${selected.ac}"))
-      val quantizer = quantizers.getOrElse(
-        component.quantizer,
-        throw JpegError(s"missing quantization table ${component.quantizer}")
-      )
-      for localY <- 0 until component.vertical; localX <- 0 until component.horizontal do
-        val (block, predictor) = readBlock(bits, predictors(component.id), dc, ac, quantizer)
-        predictors(component.id) = predictor
-        planes(component.id).write(
-          (mcuX * component.horizontal + localX) * 8,
-          (mcuY * component.vertical + localY) * 8,
-          block
+    val predictors     = mutable.Map.from(frame.components.map(_.id -> 0))
+    val totalMcus      = mcuColumns * mcuRows
+    val expectedChunks =
+      if restartInterval == 0 then 1 else (totalMcus + restartInterval - 1) / restartInterval
+    if entropy.chunks.size != expectedChunks then
+      throw JpegError("restart marker count does not match DRI interval and MCU count")
+    var bits           = BitReader(entropy.chunks.head)
+    for mcuIndex <- 0 until totalMcus do
+      if restartInterval > 0 && mcuIndex > 0 && mcuIndex % restartInterval == 0 then
+        bits = BitReader(entropy.chunks(mcuIndex / restartInterval))
+        predictors.keys.foreach(id => predictors(id) = 0)
+      val mcuY = mcuIndex / mcuColumns
+      val mcuX = mcuIndex % mcuColumns
+      frame.components.foreach: component =>
+        val selected  = selectors(component.id)
+        val dc        = huffman
+          .getOrElse((0, selected.dc), throw JpegError(s"missing DC Huffman table ${selected.dc}"))
+        val ac        = huffman
+          .getOrElse((1, selected.ac), throw JpegError(s"missing AC Huffman table ${selected.ac}"))
+        val quantizer = quantizers.getOrElse(
+          component.quantizer,
+          throw JpegError(s"missing quantization table ${component.quantizer}")
         )
+        for localY <- 0 until component.vertical; localX <- 0 until component.horizontal do
+          val (block, predictor) = readBlock(bits, predictors(component.id), dc, ac, quantizer)
+          predictors(component.id) = predictor
+          planes(component.id).write(
+            (mcuX * component.horizontal + localX) * 8,
+            (mcuY * component.vertical + localY) * 8,
+            block
+          )
     if frame.components.size == 1 then
       val plane = planes(frame.components.head.id)
       DecodedImage.Grayscale(GrayImage(
@@ -208,6 +226,9 @@ final private case class Tables(dc: Int, ac: Int)
 /** Validated frame dimensions and ordered components. */
 final private case class Frame(dimensions: Dimensions, components: IndexedSeq[Component])
 
+/** Byte-aligned entropy chunks separated by validated RST0–RST7 markers. */
+final private case class EntropyData(chunks: IndexedSeq[IArray[Byte]])
+
 /** Mutable reconstruction surface local to one decode operation. */
 final private class Plane(val width: Int, val height: Int):
   private val values                                 = Array.fill(width * height)(0)
@@ -245,15 +266,25 @@ final private class Cursor private (
     position += length - 2
     child
   def skipSegment(): Unit               = segment()
-  def entropyUntilEoi(): IArray[Byte]   =
-    val result = mutable.ArrayBuffer.empty[Byte]
+  def entropyUntilEoi(): EntropyData    =
+    val chunks  = mutable.ArrayBuffer.empty[IArray[Byte]]
+    val result  = mutable.ArrayBuffer.empty[Byte]
+    var restart = 0
     while remaining > 0 do
       val value = u8()
       if value != 0xff then result += value.toByte
       else
         val next = u8()
         if next == 0 then result += 0xff.toByte
-        else if next == 0xd9 then return IArray.from(result)
+        else if next >= 0xd0 && next <= 0xd7 then
+          if next != 0xd0 + (restart & 7) then
+            throw JpegError(f"expected restart marker RST${restart & 7} but found FF$next%02X")
+          chunks += IArray.from(result)
+          result.clear()
+          restart += 1
+        else if next == 0xd9 then
+          chunks += IArray.from(result)
+          return EntropyData(chunks.toIndexedSeq)
         else throw JpegError(f"unsupported marker FF$next%02X inside entropy data")
     throw JpegError("entropy data has no EOI marker")
 

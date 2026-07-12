@@ -39,5 +39,7 @@ enum ChromaSubsampling:
 /** Validated policy choices for JPEG encoding. */
 final case class EncoderOptions(
     quality: Quality = Quality.Default,
-    chromaSubsampling: ChromaSubsampling = ChromaSubsampling.HalfBothAxes
-)
+    chromaSubsampling: ChromaSubsampling = ChromaSubsampling.HalfBothAxes,
+    restartInterval: Int = 0
+):
+  require(restartInterval >= 0 && restartInterval <= 65535, "restart interval must be in 0..65535")

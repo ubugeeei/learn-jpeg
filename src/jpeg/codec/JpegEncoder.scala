@@ -19,13 +19,15 @@ object JpegEncoder:
     segment(out, 0xc0, Seq(8) ++ u16(image.height) ++ u16(image.width) ++ Seq(1, 1, 0x11, 0))
     dht(out, tableClass = 0, id = 0, StandardTables.LuminanceDc)
     dht(out, tableClass = 1, id = 0, StandardTables.LuminanceAc)
+    if options.restartInterval > 0 then segment(out, 0xdd, u16(options.restartInterval))
     segment(out, 0xda, Seq(1, 1, 0, 0, 63, 0))
-    out.write(entropy(image, quantizer).asInstanceOf[Array[Byte]])
+    out.write(entropy(image, quantizer, options.restartInterval).asInstanceOf[Array[Byte]])
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
   /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
+    require(options.restartInterval == 0, "color restart intervals are not implemented yet")
     val quantizer  = options.quality.scale(Quantization.Luminance)
     val converted  = IndexedSeq
       .tabulate(image.height, image.width)((y, x) => YCbCr.fromRgb(image(x, y)))
@@ -75,10 +77,16 @@ object JpegEncoder:
 
   def encode(image: RgbImage): IArray[Byte] = encode(image, EncoderOptions())
 
-  private def entropy(image: GrayImage, quantizer: Block): IArray[Byte] =
-    val bits       = BitWriter()
+  private def entropy(image: GrayImage, quantizer: Block, restartInterval: Int): IArray[Byte] =
+    val output     = ByteArrayOutputStream()
+    var bits       = BitWriter()
     var previousDc = 0
-    image.blocks.foreach: samples =>
+    image.blocks.zipWithIndex.foreach: (samples, blockIndex) =>
+      if restartInterval > 0 && blockIndex > 0 && blockIndex % restartInterval == 0 then
+        output.write(bits.result().asInstanceOf[Array[Byte]])
+        marker(output, 0xd0 + ((blockIndex / restartInterval - 1) & 7))
+        bits = BitWriter()
+        previousDc = 0
       val coefficients = Quantization.quantize(Dct.forward(samples), quantizer)
       val ordered      = Quantization.zigZag(coefficients)
       val difference   = ordered.head - previousDc
@@ -99,7 +107,8 @@ object JpegEncoder:
           bits.write(Magnitude.bits(value, category), category)
           run = 0
       if run > 0 then StandardTables.LuminanceAc.write(0x00, bits)
-    bits.result()
+    output.write(bits.result().asInstanceOf[Array[Byte]])
+    IArray.from(output.toByteArray)
 
   private def colorEntropy(
       components: IndexedSeq[GrayImage],

@@ -91,3 +91,27 @@ class CodecSuite extends munit.FunSuite:
     Jpeg.write(GrayImage(8, 8, Seq.fill(64)(128)), output, EncoderOptions())
     output.write(42)
     assertEquals(output.toByteArray.last, 42.toByte)
+
+  test("restart intervals round-trip and emit cyclic byte-aligned markers"):
+    val image = GrayImage(40, 24, for y <- 0 until 24; x <- 0 until 40 yield (x * 5 + y * 3) & 0xff)
+    Seq(1, 2, 4, 7).foreach: interval =>
+      val encoded = JpegEncoder
+        .encode(image, EncoderOptions(Quality(90), restartInterval = interval))
+      val markers = encoded.asInstanceOf[Array[Byte]].sliding(2).collect {
+        case Array(prefix, code)
+            if prefix == 0xff.toByte && code >= 0xd0.toByte && code <= 0xd7.toByte => code & 0xff
+      }.toSeq
+      assert(markers.nonEmpty)
+      assertEquals(markers, markers.indices.map(index => 0xd0 + (index & 7)))
+      val decoded = JpegDecoder.decode(encoded)
+      assertEquals(decoded.width -> decoded.height, image.width -> image.height)
+
+  test("decoder rejects an out-of-sequence restart marker"):
+    val image   = GrayImage(24, 16, Seq.fill(24 * 16)(80))
+    val encoded = JpegEncoder.encode(image, EncoderOptions(restartInterval = 1))
+      .asInstanceOf[Array[Byte]].clone()
+    val restart = encoded.indices
+      .find(index => encoded(index) == 0xff.toByte && encoded(index + 1) == 0xd0.toByte).get
+    encoded(restart + 1) = 0xd3.toByte
+    val error   = intercept[JpegError](JpegDecoder.decode(IArray.from(encoded)))
+    assert(error.message.contains("expected restart marker"))
