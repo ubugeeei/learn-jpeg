@@ -1,6 +1,8 @@
 package jpeg
 
 import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
 
 class ColorAndOptionsSuite extends munit.FunSuite:
@@ -12,15 +14,19 @@ class ColorAndOptionsSuite extends munit.FunSuite:
     assertEquals(Quality.Maximum.scale(Quantization.Luminance).values.toSet, Set(1))
 
   test("higher quality generally produces a larger gradient stream"):
-    val image = GrayImage(64, 64, for y <- 0 until 64; x <- 0 until 64 yield (x * 7 + y * 11) & 0xff)
-    val low = JpegEncoder.encode(image, EncoderOptions(Quality(10)))
-    val high = JpegEncoder.encode(image, EncoderOptions(Quality(95)))
+    val image =
+      GrayImage(64, 64, for y <- 0 until 64; x <- 0 until 64 yield (x * 7 + y * 11) & 0xff)
+    val low   = JpegEncoder.encode(image, EncoderOptions(Quality(10)))
+    val high  = JpegEncoder.encode(image, EncoderOptions(Quality(95)))
     assert(high.length > low.length)
 
   test("JFIF color conversion recognizes reference colors"):
-    assertEquals(YCbCr.fromRgb(Rgb(0, 0, 0)), YCbCr(0, 128, 128))
-    assertEquals(YCbCr.fromRgb(Rgb(255, 255, 255)), YCbCr(255, 128, 128))
-    assertEquals(YCbCr.fromRgb(Rgb(255, 0, 0)), YCbCr(76, 85, 255))
+    val cases = Seq(
+      Rgb(0, 0, 0)       -> YCbCr(0, 128, 128),
+      Rgb(255, 255, 255) -> YCbCr(255, 128, 128),
+      Rgb(255, 0, 0)     -> YCbCr(76, 85, 255)
+    )
+    cases.foreach((input, expected) => assertEquals(YCbCr.fromRgb(input), expected))
 
   test("RGB and YCbCr conversion round-trips within rounding error"):
     val colors = Seq(Rgb(0, 0, 0), Rgb(255, 255, 255), Rgb(20, 80, 160), Rgb(240, 30, 90))
@@ -31,14 +37,56 @@ class ColorAndOptionsSuite extends munit.FunSuite:
       assert(math.abs(expected.blue - actual.blue) <= 1)
 
   test("RGB encoder emits a three-component stream readable by ImageIO"):
-    val image = RgbImage(13, 9, for
-      y <- 0 until 9
-      x <- 0 until 13
-    yield Rgb(x * 19, y * 27, (x * 11 + y * 7) & 0xff))
+    val image   = RgbImage(
+      13,
+      9,
+      for
+        y <- 0 until 9
+        x <- 0 until 13
+      yield Rgb(x * 19, y * 27, (x * 11 + y * 7) & 0xff)
+    )
     val encoded = JpegEncoder.encode(image, EncoderOptions(Quality(90)))
     val decoded = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
     assertEquals(decoded.getWidth, 13)
     assertEquals(decoded.getHeight, 9)
-    val center = decoded.getRGB(6, 4)
+    val center  = decoded.getRGB(6, 4)
     assert(math.abs(((center >>> 16) & 0xff) - 114) <= 12)
     assert(math.abs(((center >>> 8) & 0xff) - 108) <= 12)
+
+  test("RGB codec round-trips a 4:4:4 image"):
+    val source  = RgbImage(
+      17,
+      11,
+      for
+        y <- 0 until 11
+        x <- 0 until 17
+      yield Rgb(x * 13, y * 21, (x * 7 + y * 9) & 0xff)
+    )
+    val decoded = JpegDecoder.decodeRgb(JpegEncoder.encode(source, EncoderOptions(Quality(95))))
+    val errors  =
+      for y <- 0 until source.height; x <- 0 until source.width yield
+        val expected = source(x, y)
+        val actual   = decoded(x, y)
+        Seq(
+          math.abs(expected.red - actual.red),
+          math.abs(expected.green - actual.green),
+          math.abs(expected.blue - actual.blue)
+        ).max
+    assert(errors.max <= 18, s"maximum channel error was ${errors.max}")
+
+  test("decoder reads externally produced subsampled color JPEG"):
+    val source  = BufferedImage(31, 19, BufferedImage.TYPE_INT_RGB)
+    for y <- 0 until source.getHeight; x <- 0 until source.getWidth do
+      val red   = x * 255 / (source.getWidth - 1)
+      val green = y * 255 / (source.getHeight - 1)
+      val blue  = (x + y) * 255 / (source.getWidth + source.getHeight - 2)
+      source.setRGB(x, y, (red << 16) | (green << 8) | blue)
+    val output  = ByteArrayOutputStream()
+    assert(ImageIO.write(source, "jpeg", output))
+    val decoded = JpegDecoder.decodeRgb(IArray.from(output.toByteArray))
+    assertEquals(decoded.width, 31)
+    assertEquals(decoded.height, 19)
+    val center  = decoded(15, 9)
+    assert(math.abs(center.red - 127) <= 12)
+    assert(math.abs(center.green - 127) <= 12)
+    assert(math.abs(center.blue - 127) <= 12)
