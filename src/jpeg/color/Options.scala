@@ -2,9 +2,9 @@ package jpeg
 
 /** Human-facing JPEG quality in the inclusive range 1–100.
   *
-  * Quality is not part of the JPEG interchange syntax: a file stores only the
-  * resulting quantization tables. This value uses the conventional Independent
-  * JPEG Group scaling curve so that 50 preserves the T.81 Annex K example table.
+  * Quality is not part of the JPEG interchange syntax: a file stores only the resulting
+  * quantization tables. This value uses the conventional Independent JPEG Group scaling curve so
+  * that 50 preserves the T.81 Annex K example table.
   */
 opaque type Quality = Int
 
@@ -25,8 +25,7 @@ object Quality:
       val factor = if quality < 50 then 5000 / quality else 200 - quality * 2
       table.map(entry => math.max(1, math.min(255, (entry * factor + 50) / 100)))
 
-/** Encoding choices. More options can be added without widening the codec's
-  * primary `encode(image)` learning path.
+/** Encoding choices. More options can be added without widening the codec's primary `encode(image)`
+  * learning path.
   */
 final case class EncoderOptions(quality: Quality = Quality.Default)
-

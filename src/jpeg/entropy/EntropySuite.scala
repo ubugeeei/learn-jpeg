@@ -18,7 +18,7 @@ class EntropySuite extends munit.FunSuite:
 
   test("standard DC Huffman table round-trips every symbol"):
     for symbol <- 0 to 11 do
-      val writer = BitWriter()
+      val writer  = BitWriter()
       StandardTables.LuminanceDc.write(symbol, writer)
       val encoded = writer.result()
       assertEquals(StandardTables.LuminanceDc.read(BitReader(encoded)), symbol)

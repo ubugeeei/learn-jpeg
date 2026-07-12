@@ -19,15 +19,16 @@ object Block:
   val Zero: Block = Block(Seq.fill(Area)(0))
 
   extension (block: Block)
-    inline def apply(row: Int, column: Int): Int = block.asInstanceOf[Array[Int]](row * Side + column)
-    inline def apply(index: Int): Int = block.asInstanceOf[Array[Int]](index)
-    def values: IndexedSeq[Int] = IndexedSeq.tabulate(Area)(block(_))
-    def map(f: Int => Int): Block = Block(values.map(f))
+    inline def apply(row: Int, column: Int): Int = block
+      .asInstanceOf[Array[Int]](row * Side + column)
+    inline def apply(index: Int): Int            = block.asInstanceOf[Array[Int]](index)
+    def values: IndexedSeq[Int]                  = IndexedSeq.tabulate(Area)(block(_))
+    def map(f: Int => Int): Block                = Block(values.map(f))
 
 /** Image dimensions validated at the public boundary. */
 final case class Dimensions private (width: Int, height: Int):
   val blockColumns: Int = (width + 7) / 8
-  val blockRows: Int = (height + 7) / 8
+  val blockRows: Int    = (height + 7) / 8
 
 object Dimensions:
   def apply(width: Int, height: Int): Dimensions =
@@ -37,8 +38,8 @@ object Dimensions:
 
 /** An 8-bit grayscale raster in row-major order. */
 final case class GrayImage private (dimensions: Dimensions, samples: IArray[Byte]):
-  def width: Int = dimensions.width
-  def height: Int = dimensions.height
+  def width: Int                 = dimensions.width
+  def height: Int                = dimensions.height
   def apply(x: Int, y: Int): Int = samples(y * width + x) & 0xff
 
   /** Splits the raster into blocks, extending edge samples as required by
@@ -56,7 +57,7 @@ final case class GrayImage private (dimensions: Dimensions, samples: IArray[Byte
 object GrayImage:
   def apply(width: Int, height: Int, samples: IterableOnce[Int]): GrayImage =
     val dimensions = Dimensions(width, height)
-    val values = samples.iterator.toArray
+    val values     = samples.iterator.toArray
     require(values.length == width * height, "sample count must equal width × height")
     require(values.forall(v => v >= 0 && v <= 255), "samples must be 8-bit values")
     new GrayImage(dimensions, IArray.from(values.map(_.toByte)))

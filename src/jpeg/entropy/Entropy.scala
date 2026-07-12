@@ -4,14 +4,14 @@ import scala.collection.mutable
 
 /** A canonical Huffman table as represented by a DHT marker.
   *
-  * `counts(i)` is the number of codes of length `i + 1`. The derivation of
-  * canonical codes follows [[https://www.w3.org/Graphics/JPEG/itu-t81.pdf T.81 C.2]].
+  * `counts(i)` is the number of codes of length `i + 1`. The derivation of canonical codes follows
+  * [[https://www.w3.org/Graphics/JPEG/itu-t81.pdf T.81 C.2]].
   */
 final class HuffmanTable private (val counts: IArray[Int], val symbols: IArray[Int]):
   require(counts.length == 16 && counts.sum == symbols.length)
 
   private val encodings: Map[Int, (Int, Int)] =
-    var code = 0
+    var code   = 0
     var offset = 0
     (1 to 16).flatMap: length =>
       val entries = (0 until counts(length - 1)).map: _ =>
@@ -23,22 +23,24 @@ final class HuffmanTable private (val counts: IArray[Int], val symbols: IArray[I
       entries
     .toMap
 
-  private val decodings: Map[(Int, Int), Int] =
-    encodings.iterator.map((symbol, encoded) => encoded -> symbol).toMap
+  private val decodings: Map[(Int, Int), Int] = encodings.iterator
+    .map((symbol, encoded) => encoded -> symbol).toMap
 
   def write(symbol: Int, output: BitWriter): Unit =
-    val (code, length) = encodings.getOrElse(symbol,
-      throw IllegalArgumentException(f"symbol 0x$symbol%02x is absent from Huffman table"))
+    val (code, length) = encodings.getOrElse(
+      symbol,
+      throw IllegalArgumentException(f"symbol 0x$symbol%02x is absent from Huffman table")
+    )
     output.write(code, length)
 
   def read(input: BitReader): Int =
-    var code = 0
+    var code   = 0
     var length = 1
     while length <= 16 do
       code = (code << 1) | input.readBit()
       decodings.get((code, length)) match
         case Some(symbol) => return symbol
-        case None => length += 1
+        case None         => length += 1
     throw JpegError("invalid Huffman code")
 
 object HuffmanTable:
@@ -48,9 +50,9 @@ object HuffmanTable:
 
 /** Entropy bit output with JPEG's mandatory `FF 00` byte stuffing (T.81 B.1.1.5). */
 final class BitWriter:
-  private val bytes = mutable.ArrayBuffer.empty[Byte]
+  private val bytes       = mutable.ArrayBuffer.empty[Byte]
   private var accumulator = 0
-  private var bitCount = 0
+  private var bitCount    = 0
 
   def write(value: Int, length: Int): Unit =
     require(length >= 0 && length <= 16 && (length == 16 || value >= 0 && value < (1 << length)))
@@ -73,7 +75,7 @@ final class BitWriter:
 /** Bit input over already unstuffed entropy bytes. */
 final class BitReader(bytes: IArray[Byte]):
   private var byteIndex = 0
-  private var bitIndex = 0
+  private var bitIndex  = 0
 
   def readBit(): Int =
     if byteIndex >= bytes.length then throw JpegError("unexpected end of entropy data")

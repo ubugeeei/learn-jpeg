@@ -18,6 +18,7 @@ jobs:
           java-version: '21'
           cache: sbt
       - uses: sbt/setup-sbt@v1
+      - run: sbt scalafmtCheckAll
       - run: sbt test
       - uses: actions/setup-node@v4
         with:

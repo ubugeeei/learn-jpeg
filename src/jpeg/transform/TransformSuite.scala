@@ -6,10 +6,11 @@ class TransformSuite extends munit.FunSuite:
     assertEquals(transformed.values, Block.Zero.values)
 
   test("FDCT and IDCT round-trip representative samples"):
-    val source = Block((0 until 64).map(i => (i * 37 + 11) & 0xff))
+    val source        = Block((0 until 64).map(i => (i * 37 + 11) & 0xff))
     val reconstructed = Dct.inverse(Dct.forward(source))
     source.values.zip(reconstructed.values).foreach((expected, actual) =>
-      assert(math.abs(expected - actual) <= 1, s"$expected != $actual"))
+      assert(math.abs(expected - actual) <= 1, s"$expected != $actual")
+    )
 
   test("zig-zag and natural order are inverses"):
     val source = Block(0 until 64)
