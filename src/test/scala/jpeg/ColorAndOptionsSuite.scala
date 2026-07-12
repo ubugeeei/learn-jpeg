@@ -1,5 +1,8 @@
 package jpeg
 
+import java.io.ByteArrayInputStream
+import javax.imageio.ImageIO
+
 class ColorAndOptionsSuite extends munit.FunSuite:
   test("quality 50 preserves the Annex K table"):
     assertEquals(Quality(50).scale(Quantization.Luminance).values, Quantization.Luminance.values)
@@ -26,3 +29,16 @@ class ColorAndOptionsSuite extends munit.FunSuite:
       assert(math.abs(expected.red - actual.red) <= 1)
       assert(math.abs(expected.green - actual.green) <= 1)
       assert(math.abs(expected.blue - actual.blue) <= 1)
+
+  test("RGB encoder emits a three-component stream readable by ImageIO"):
+    val image = RgbImage(13, 9, for
+      y <- 0 until 9
+      x <- 0 until 13
+    yield Rgb(x * 19, y * 27, (x * 11 + y * 7) & 0xff))
+    val encoded = JpegEncoder.encode(image, EncoderOptions(Quality(90)))
+    val decoded = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
+    assertEquals(decoded.getWidth, 13)
+    assertEquals(decoded.getHeight, 9)
+    val center = decoded.getRGB(6, 4)
+    assert(math.abs(((center >>> 16) & 0xff) - 114) <= 12)
+    assert(math.abs(((center >>> 8) & 0xff) - 108) <= 12)
