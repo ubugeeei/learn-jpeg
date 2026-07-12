@@ -165,7 +165,8 @@ object JpegDecoder:
     val mcuColumns     = (frame.dimensions.width + maxH * 8 - 1) / (maxH * 8)
     val mcuRows        = (frame.dimensions.height + maxV * 8 - 1) / (maxV * 8)
     val planes         = frame.components
-      .map(c => c.id -> Plane(mcuColumns * c.horizontal * 8, mcuRows * c.vertical * 8)).toMap
+      .map(c => c.id -> ComponentPlane(mcuColumns * c.horizontal * 8, mcuRows * c.vertical * 8))
+      .toMap
     val predictors     = mutable.Map.from(frame.components.map(_.id -> 0))
     val totalMcus      = mcuColumns * mcuRows
     val expectedChunks =
@@ -210,16 +211,13 @@ object JpegDecoder:
       val yComponent                                        = byId.getOrElse(1, throw JpegError("YCbCr frame requires component 1"))
       val cbComponent                                       = byId.getOrElse(2, throw JpegError("YCbCr frame requires component 2"))
       val crComponent                                       = byId.getOrElse(3, throw JpegError("YCbCr frame requires component 3"))
-      def sample(component: Component, x: Int, y: Int): Int = chromaUpsampling match
-        case ChromaUpsampling.Nearest  =>
-          planes(component.id)(x * component.horizontal / maxH, y * component.vertical / maxV)
-        case ChromaUpsampling.Bilinear => interpolate(
-            planes(component.id),
-            x,
-            y,
-            component.horizontal.toDouble / maxH,
-            component.vertical.toDouble / maxV
-          )
+      def sample(component: Component, x: Int, y: Int): Int = planes(component.id).sample(
+        x,
+        y,
+        component.horizontal.toDouble / maxH,
+        component.vertical.toDouble / maxV,
+        chromaUpsampling
+      )
       DecodedImage.Color(RgbImage(
         frame.dimensions.width,
         frame.dimensions.height,
@@ -227,26 +225,6 @@ object JpegDecoder:
         yield YCbCr(sample(yComponent, x, y), sample(cbComponent, x, y), sample(crComponent, x, y))
           .toRgb
       ))
-
-  /** Bilinearly samples a centered lower-resolution component plane. */
-  private def interpolate(
-      plane: Plane,
-      outputX: Int,
-      outputY: Int,
-      horizontalScale: Double,
-      verticalScale: Double
-  ): Int =
-    val sourceX                     = (outputX + 0.5) * horizontalScale - 0.5
-    val sourceY                     = (outputY + 0.5) * verticalScale - 0.5
-    val left                        = math.floor(sourceX).toInt
-    val top                         = math.floor(sourceY).toInt
-    val xWeight                     = sourceX - left
-    val yWeight                     = sourceY - top
-    def sample(x: Int, y: Int): Int =
-      plane(math.max(0, math.min(plane.width - 1, x)), math.max(0, math.min(plane.height - 1, y)))
-    val upper                       = sample(left, top) * (1.0 - xWeight) + sample(left + 1, top) * xWeight
-    val lower                       = sample(left, top + 1) * (1.0 - xWeight) + sample(left + 1, top + 1) * xWeight
-    math.round(upper * (1.0 - yWeight) + lower * yWeight).toInt
 
   private def readBlock(
       input: BitReader,
@@ -286,13 +264,6 @@ final private case class Frame(dimensions: Dimensions, components: IndexedSeq[Co
 
 /** Byte-aligned entropy chunks separated by validated RST0–RST7 markers. */
 final private case class EntropyData(chunks: IndexedSeq[IArray[Byte]])
-
-/** Mutable reconstruction surface local to one decode operation. */
-final private class Plane(val width: Int, val height: Int):
-  private val values                                 = Array.fill(width * height)(0)
-  def apply(x: Int, y: Int): Int                     = values(y * width + x)
-  def write(left: Int, top: Int, block: Block): Unit =
-    for y <- 0 until 8; x <- 0 until 8 do values((top + y) * width + left + x) = block(y, x)
 
 /** A bounded big-endian reader. Child cursors cannot escape marker segment limits. */
 final private class Cursor private (
