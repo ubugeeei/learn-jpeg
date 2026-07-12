@@ -40,7 +40,7 @@ returns a domain error instead of producing corrupt pixels.
 | one interleaved scan | ✅ | ✅ | common JFIF layout |
 | non-interleaved component scans | ◻ | ◻ | legal sequential JPEG, uncommon for JFIF |
 | multiple sequential scans | ◻ | ◻ | needs scan-state continuation |
-| restart intervals / RST0–7 | ◻ | 🚫 | DRI parsing and predictor reset not implemented |
+| restart intervals / RST0–7 | grayscale ✅ | ✅ | color encode still pending |
 | abbreviated table streams | ◻ | ◻ | tables must be present in each file |
 
 ## Tables and entropy coding
