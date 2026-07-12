@@ -46,7 +46,8 @@ export default defineConfig({
           { text: "Color JPEG", link: "/30-codec/04-color" },
           { text: "Quality", link: "/30-codec/05-quality" },
           { text: "Production I/O", link: "/30-codec/06-production-io" },
-          { text: "Restart intervals", link: "/30-codec/07-restart-intervals" }
+          { text: "Restart intervals", link: "/30-codec/07-restart-intervals" },
+          { text: "Huffman optimization", link: "/30-codec/08-huffman-optimization" }
         ]
       },
       {
