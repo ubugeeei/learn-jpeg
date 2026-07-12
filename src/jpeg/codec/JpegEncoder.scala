@@ -35,16 +35,24 @@ object JpegEncoder:
           component(image.width, image.height, converted)(_.cb),
           component(image.width, image.height, converted)(_.cr)
         )
+      case ChromaSubsampling.HalfHorizontal =>
+        val paddedWidth = (image.width + 15) / 16 * 16
+        IndexedSeq(
+          component(paddedWidth, image.height, converted)(_.y),
+          downsample(converted, vertical = false)(_.cb),
+          downsample(converted, vertical = false)(_.cr)
+        )
       case ChromaSubsampling.HalfBothAxes   =>
         val paddedWidth  = (image.width + 15) / 16 * 16
         val paddedHeight = (image.height + 15) / 16 * 16
         IndexedSeq(
           component(paddedWidth, paddedHeight, converted)(_.y),
-          downsample(converted)(_.cb),
-          downsample(converted)(_.cr)
+          downsample(converted, vertical = true)(_.cb),
+          downsample(converted, vertical = true)(_.cr)
         )
     val ySampling  = options.chromaSubsampling match
       case ChromaSubsampling.FullResolution => 0x11
+      case ChromaSubsampling.HalfHorizontal => 0x21
       case ChromaSubsampling.HalfBothAxes   => 0x22
     val out        = ByteArrayOutputStream()
     marker(out, 0xd8)
@@ -106,20 +114,33 @@ object JpegEncoder:
         for blockIndex <- blocks.head.indices; component <- components.indices do
           previousDc(component) =
             writeBlock(blocks(component)(blockIndex), quantizer, previousDc(component), bits)
+      case ChromaSubsampling.HalfHorizontal =>
+        writeSubsampledMcus(components, blocks, lumaBlocksHigh = 1, quantizer, previousDc, bits)
       case ChromaSubsampling.HalfBothAxes   =>
-        val lumaColumns = components.head.dimensions.blockColumns
-        for
-          mcuY <- 0 until components(1).dimensions.blockRows
-          mcuX <- 0 until components(1).dimensions.blockColumns
-        do
-          for localY <- 0 until 2; localX <- 0 until 2 do
-            val index = (mcuY * 2 + localY) * lumaColumns + mcuX * 2 + localX
-            previousDc(0) = writeBlock(blocks(0)(index), quantizer, previousDc(0), bits)
-          for component <- 1 to 2 do
-            val index = mcuY * components(component).dimensions.blockColumns + mcuX
-            previousDc(component) =
-              writeBlock(blocks(component)(index), quantizer, previousDc(component), bits)
+        writeSubsampledMcus(components, blocks, lumaBlocksHigh = 2, quantizer, previousDc, bits)
     bits.result()
+
+  /** Writes one interleaved MCU at a time for 2×1 or 2×2 luma sampling. */
+  private def writeSubsampledMcus(
+      components: IndexedSeq[GrayImage],
+      blocks: IndexedSeq[IndexedSeq[Block]],
+      lumaBlocksHigh: Int,
+      quantizer: Block,
+      previousDc: Array[Int],
+      bits: BitWriter
+  ): Unit =
+    val lumaColumns = components.head.dimensions.blockColumns
+    for
+      mcuY <- 0 until components(1).dimensions.blockRows
+      mcuX <- 0 until components(1).dimensions.blockColumns
+    do
+      for localY <- 0 until lumaBlocksHigh; localX <- 0 until 2 do
+        val index = (mcuY * lumaBlocksHigh + localY) * lumaColumns + mcuX * 2 + localX
+        previousDc(0) = writeBlock(blocks(0)(index), quantizer, previousDc(0), bits)
+      for component <- 1 to 2 do
+        val index = mcuY * components(component).dimensions.blockColumns + mcuX
+        previousDc(component) =
+          writeBlock(blocks(component)(index), quantizer, previousDc(component), bits)
 
   private def component(width: Int, height: Int, source: IndexedSeq[IndexedSeq[YCbCr]])(
       select: YCbCr => Int
@@ -130,12 +151,14 @@ object JpegEncoder:
     yield select(source(math.min(y, source.size - 1))(math.min(x, source.head.size - 1)))
   )
 
-  /** Box-filters chroma to half width and height, extending odd edges before averaging. */
-  private def downsample(source: IndexedSeq[IndexedSeq[YCbCr]])(select: YCbCr => Int): GrayImage =
+  /** Box-filters chroma horizontally and optionally vertically, extending odd edges. */
+  private def downsample(source: IndexedSeq[IndexedSeq[YCbCr]], vertical: Boolean)(
+      select: YCbCr => Int
+  ): GrayImage =
     val sourceHeight = source.size
     val sourceWidth  = source.head.size
     val width        = (sourceWidth + 1) / 2
-    val height       = (sourceHeight + 1) / 2
+    val height       = if vertical then (sourceHeight + 1) / 2 else sourceHeight
     GrayImage(
       width,
       height,
@@ -145,12 +168,12 @@ object JpegEncoder:
       yield
         val values =
           for
-            dy <- 0 until 2
+            dy <- 0 until (if vertical then 2 else 1)
             dx <- 0 until 2
           yield select(
             source(math.min(y * 2 + dy, sourceHeight - 1))(math.min(x * 2 + dx, sourceWidth - 1))
           )
-        (values.sum + 2) / 4
+        (values.sum + values.size / 2) / values.size
     )
 
   private def writeBlock(samples: Block, quantizer: Block, previousDc: Int, bits: BitWriter): Int =

@@ -118,3 +118,33 @@ class ColorAndOptionsSuite extends munit.FunSuite:
     val subsampled = JpegEncoder
       .encode(source, EncoderOptions(Quality(85), ChromaSubsampling.HalfBothAxes))
     assert(subsampled.length < full.length)
+
+  test("4:2:2 encoder interoperates and preserves odd dimensions"):
+    val cases = Seq(1 -> 1, 15 -> 7, 16 -> 8, 17 -> 9, 33 -> 19)
+    cases.foreach: (width, height) =>
+      val source   = RgbImage(
+        width,
+        height,
+        for y <- 0 until height; x <- 0 until width
+        yield Rgb(x * 255 / math.max(1, width - 1), y * 255 / math.max(1, height - 1), 96)
+      )
+      val encoded  = JpegEncoder
+        .encode(source, EncoderOptions(Quality(90), ChromaSubsampling.HalfHorizontal))
+      val external = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
+      assertEquals(external.getWidth -> external.getHeight, width -> height)
+      val decoded  = JpegDecoder.decodeRgb(encoded)
+      assertEquals(decoded.width     -> decoded.height, width     -> height)
+
+  test("subsampling choices produce the expected SOF0 luma sampling byte"):
+    val source = RgbImage(16, 16, Seq.fill(256)(Rgb(30, 80, 140)))
+    val cases  = Seq(
+      ChromaSubsampling.FullResolution -> 0x11,
+      ChromaSubsampling.HalfHorizontal -> 0x21,
+      ChromaSubsampling.HalfBothAxes   -> 0x22
+    )
+    cases.foreach: (subsampling, expected) =>
+      val bytes = JpegEncoder.encode(source, EncoderOptions(Quality.Default, subsampling))
+        .asInstanceOf[Array[Byte]]
+      val sof   = bytes.indices
+        .find(index => bytes(index) == 0xff.toByte && bytes(index + 1) == 0xc0.toByte).get
+      assertEquals(bytes(sof + 11) & 0xff, expected)

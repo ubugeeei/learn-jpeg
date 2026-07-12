@@ -30,6 +30,9 @@ enum ChromaSubsampling:
   /** One Cb and Cr sample per pixel: JPEG sampling factors 1×1, 1×1, 1×1. */
   case FullResolution
 
+  /** One Cb and Cr sample for each pair of horizontal pixels (4:2:2). */
+  case HalfHorizontal
+
   /** One Cb and Cr sample per 2×2 pixels: JPEG sampling factors 2×2, 1×1, 1×1. */
   case HalfBothAxes
 
