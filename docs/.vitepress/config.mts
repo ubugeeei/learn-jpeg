@@ -49,7 +49,8 @@ export default defineConfig({
           { text: "Restart intervals", link: "/30-codec/07-restart-intervals" },
           { text: "Huffman optimization", link: "/30-codec/08-huffman-optimization" },
           { text: "Metadata", link: "/30-codec/09-metadata" },
-          { text: "Defensive decoding", link: "/30-codec/10-defensive-decoding" }
+          { text: "Defensive decoding", link: "/30-codec/10-defensive-decoding" },
+          { text: "Chroma upsampling", link: "/30-codec/11-chroma-upsampling" }
         ]
       },
       {

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="280" viewBox="0 0 900 280" role="img" aria-labelledby="title desc">
+  <title id="title">Nearest and bilinear chroma upsampling</title>
+  <desc id="desc">Two stored chroma samples are expanded into four output positions by copying or interpolation.</desc>
+  <rect width="900" height="280" rx="16" fill="#f6f7f9"/>
+  <g font-family="system-ui,sans-serif" fill="#202124" text-anchor="middle">
+    <text x="450" y="35" font-size="20" font-weight="600">stored chroma samples</text>
+    <circle cx="320" cy="80" r="18" fill="#dcecff" stroke="#6b91bd"/><text x="320" y="86">40</text>
+    <circle cx="580" cy="80" r="18" fill="#e8e5ff" stroke="#8c82bd"/><text x="580" y="86">80</text>
+    <text x="220" y="142" font-size="17" font-weight="600">nearest</text>
+    <text x="220" y="176">40</text><text x="380" y="176">40</text><text x="540" y="176">80</text><text x="700" y="176">80</text>
+    <text x="220" y="220" font-size="17" font-weight="600">bilinear</text>
+    <text x="220" y="254">40</text><text x="380" y="254">50</text><text x="540" y="254">70</text><text x="700" y="254">80</text>
+  </g>
+  <g stroke="#68727c" stroke-width="2"><path d="M220 185h480"/><path d="M220 263h480"/></g>
+  <g fill="#3d4650"><circle cx="220" cy="185" r="5"/><circle cx="380" cy="185" r="5"/><circle cx="540" cy="185" r="5"/><circle cx="700" cy="185" r="5"/><circle cx="220" cy="263" r="5"/><circle cx="380" cy="263" r="5"/><circle cx="540" cy="263" r="5"/><circle cx="700" cy="263" r="5"/></g>
+</svg>
