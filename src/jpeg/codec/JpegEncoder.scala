@@ -11,26 +11,32 @@ import java.io.ByteArrayOutputStream
   */
 object JpegEncoder:
   def encode(image: GrayImage, options: EncoderOptions = EncoderOptions()): IArray[Byte] =
-    val quantizer = options.quality.scale(Quantization.Luminance)
-    val out       = ByteArrayOutputStream()
+    val quantizer          = options.quality.scale(Quantization.Luminance)
+    val scan               = PreparedScan(
+      image.blocks.map(block => IndexedSeq(0 -> block)),
+      quantizer,
+      options.restartInterval
+    )
+    val (dcTable, acTable) = entropyTables(scan, options.optimizeHuffmanTables)
+    val out                = ByteArrayOutputStream()
     marker(out, 0xd8)
     segment(out, 0xe0, Seq(0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0))
     segment(out, 0xdb, 0 +: Quantization.zigZag(quantizer))
     segment(out, 0xc0, Seq(8) ++ u16(image.height) ++ u16(image.width) ++ Seq(1, 1, 0x11, 0))
-    dht(out, tableClass = 0, id = 0, StandardTables.LuminanceDc)
-    dht(out, tableClass = 1, id = 0, StandardTables.LuminanceAc)
+    dht(out, tableClass = 0, id = 0, dcTable)
+    dht(out, tableClass = 1, id = 0, acTable)
     if options.restartInterval > 0 then segment(out, 0xdd, u16(options.restartInterval))
     segment(out, 0xda, Seq(1, 1, 0, 0, 63, 0))
-    out.write(entropy(image, quantizer, options.restartInterval).asInstanceOf[Array[Byte]])
+    out.write(scan.write(dcTable, acTable, options.restartInterval).asInstanceOf[Array[Byte]])
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
   /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
-    val quantizer  = options.quality.scale(Quantization.Luminance)
-    val converted  = IndexedSeq
+    val quantizer          = options.quality.scale(Quantization.Luminance)
+    val converted          = IndexedSeq
       .tabulate(image.height, image.width)((y, x) => YCbCr.fromRgb(image(x, y)))
-    val components = options.chromaSubsampling match
+    val components         = options.chromaSubsampling match
       case ChromaSubsampling.FullResolution => IndexedSeq(
           component(image.width, image.height, converted)(_.y),
           component(image.width, image.height, converted)(_.cb),
@@ -51,11 +57,17 @@ object JpegEncoder:
           downsample(converted, vertical = true)(_.cb),
           downsample(converted, vertical = true)(_.cr)
         )
-    val ySampling  = options.chromaSubsampling match
+    val ySampling          = options.chromaSubsampling match
       case ChromaSubsampling.FullResolution => 0x11
       case ChromaSubsampling.HalfHorizontal => 0x21
       case ChromaSubsampling.HalfBothAxes   => 0x22
-    val out        = ByteArrayOutputStream()
+    val scan               = PreparedScan(
+      colorMcus(components, components.map(_.blocks), options.chromaSubsampling),
+      quantizer,
+      options.restartInterval
+    )
+    val (dcTable, acTable) = entropyTables(scan, options.optimizeHuffmanTables)
+    val out                = ByteArrayOutputStream()
     marker(out, 0xd8)
     segment(out, 0xe0, Seq(0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0))
     segment(out, 0xdb, 0 +: Quantization.zigZag(quantizer))
@@ -65,72 +77,20 @@ object JpegEncoder:
       Seq(8) ++ u16(image.height) ++ u16(image.width) ++
         Seq(3, 1, ySampling, 0, 2, 0x11, 0, 3, 0x11, 0)
     )
-    dht(out, 0, 0, StandardTables.LuminanceDc)
-    dht(out, 1, 0, StandardTables.LuminanceAc)
+    dht(out, 0, 0, dcTable)
+    dht(out, 1, 0, acTable)
     if options.restartInterval > 0 then segment(out, 0xdd, u16(options.restartInterval))
     segment(out, 0xda, Seq(3, 1, 0, 2, 0, 3, 0, 0, 63, 0))
-    out.write(
-      colorEntropy(components, quantizer, options.chromaSubsampling, options.restartInterval)
-        .asInstanceOf[Array[Byte]]
-    )
+    out.write(scan.write(dcTable, acTable, options.restartInterval).asInstanceOf[Array[Byte]])
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
   def encode(image: RgbImage): IArray[Byte] = encode(image, EncoderOptions())
 
-  private def entropy(image: GrayImage, quantizer: Block, restartInterval: Int): IArray[Byte] =
-    val output     = ByteArrayOutputStream()
-    var bits       = BitWriter()
-    var previousDc = 0
-    image.blocks.zipWithIndex.foreach: (samples, blockIndex) =>
-      if restartInterval > 0 && blockIndex > 0 && blockIndex % restartInterval == 0 then
-        output.write(bits.result().asInstanceOf[Array[Byte]])
-        marker(output, 0xd0 + ((blockIndex / restartInterval - 1) & 7))
-        bits = BitWriter()
-        previousDc = 0
-      val coefficients = Quantization.quantize(Dct.forward(samples), quantizer)
-      val ordered      = Quantization.zigZag(coefficients)
-      val difference   = ordered.head - previousDc
-      previousDc = ordered.head
-      val dcCategory   = Magnitude.category(difference)
-      StandardTables.LuminanceDc.write(dcCategory, bits)
-      bits.write(Magnitude.bits(difference, dcCategory), dcCategory)
-
-      var run = 0
-      ordered.tail.foreach: value =>
-        if value == 0 then run += 1
-        else
-          while run >= 16 do
-            StandardTables.LuminanceAc.write(0xf0, bits)
-            run -= 16
-          val category = Magnitude.category(value)
-          StandardTables.LuminanceAc.write((run << 4) | category, bits)
-          bits.write(Magnitude.bits(value, category), category)
-          run = 0
-      if run > 0 then StandardTables.LuminanceAc.write(0x00, bits)
-    output.write(bits.result().asInstanceOf[Array[Byte]])
-    IArray.from(output.toByteArray)
-
-  private def colorEntropy(
-      components: IndexedSeq[GrayImage],
-      quantizer: Block,
-      subsampling: ChromaSubsampling,
-      restartInterval: Int
-  ): IArray[Byte] =
-    val output     = ByteArrayOutputStream()
-    var bits       = BitWriter()
-    val previousDc = Array.fill(components.size)(0)
-    val blocks     = components.map(_.blocks)
-    colorMcus(components, blocks, subsampling).zipWithIndex.foreach: (mcu, mcuIndex) =>
-      if restartInterval > 0 && mcuIndex > 0 && mcuIndex % restartInterval == 0 then
-        output.write(bits.result().asInstanceOf[Array[Byte]])
-        marker(output, 0xd0 + ((mcuIndex / restartInterval - 1) & 7))
-        bits = BitWriter()
-        java.util.Arrays.fill(previousDc, 0)
-      mcu.foreach: (component, block) =>
-        previousDc(component) = writeBlock(block, quantizer, previousDc(component), bits)
-    output.write(bits.result().asInstanceOf[Array[Byte]])
-    IArray.from(output.toByteArray)
+  private def entropyTables(scan: PreparedScan, optimize: Boolean): (HuffmanTable, HuffmanTable) =
+    if optimize then
+      HuffmanOptimizer.optimize(scan.dcFrequencies) -> HuffmanOptimizer.optimize(scan.acFrequencies)
+    else StandardTables.LuminanceDc                 -> StandardTables.LuminanceAc
 
   /** Groups component blocks in the exact interleaved order required for each MCU. */
   private def colorMcus(
@@ -189,26 +149,6 @@ object JpegEncoder:
           )
         (values.sum + values.size / 2) / values.size
     )
-
-  private def writeBlock(samples: Block, quantizer: Block, previousDc: Int, bits: BitWriter): Int =
-    val ordered    = Quantization.zigZag(Quantization.quantize(Dct.forward(samples), quantizer))
-    val difference = ordered.head - previousDc
-    val dcCategory = Magnitude.category(difference)
-    StandardTables.LuminanceDc.write(dcCategory, bits)
-    bits.write(Magnitude.bits(difference, dcCategory), dcCategory)
-    var run        = 0
-    ordered.tail.foreach: value =>
-      if value == 0 then run += 1
-      else
-        while run >= 16 do
-          StandardTables.LuminanceAc.write(0xf0, bits)
-          run -= 16
-        val category = Magnitude.category(value)
-        StandardTables.LuminanceAc.write((run << 4) | category, bits)
-        bits.write(Magnitude.bits(value, category), category)
-        run = 0
-    if run > 0 then StandardTables.LuminanceAc.write(0, bits)
-    ordered.head
 
   private def dht(out: ByteArrayOutputStream, tableClass: Int, id: Int, table: HuffmanTable): Unit =
     segment(out, 0xc4, Seq((tableClass << 4) | id) ++ table.counts ++ table.symbols)

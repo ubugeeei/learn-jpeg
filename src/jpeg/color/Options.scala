@@ -40,6 +40,7 @@ enum ChromaSubsampling:
 final case class EncoderOptions(
     quality: Quality = Quality.Default,
     chromaSubsampling: ChromaSubsampling = ChromaSubsampling.HalfBothAxes,
-    restartInterval: Int = 0
+    restartInterval: Int = 0,
+    optimizeHuffmanTables: Boolean = true
 ):
   require(restartInterval >= 0 && restartInterval <= 65535, "restart interval must be in 0..65535")

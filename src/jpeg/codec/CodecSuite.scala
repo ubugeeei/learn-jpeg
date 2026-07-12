@@ -115,3 +115,20 @@ class CodecSuite extends munit.FunSuite:
     encoded(restart + 1) = 0xd3.toByte
     val error   = intercept[JpegError](JpegDecoder.decode(IArray.from(encoded)))
     assert(error.message.contains("expected restart marker"))
+
+  test("optimized Huffman tables reduce a grayscale scan and remain interoperable"):
+    val image     = GrayImage(
+      160,
+      120,
+      for y <- 0 until 120; x <- 0 until 160 yield (x * 3 + y * 5 + (x * y % 17)) & 0xff
+    )
+    val fixed     = JpegEncoder.encode(
+      image,
+      EncoderOptions(Quality(82), restartInterval = 7, optimizeHuffmanTables = false)
+    )
+    val optimized = JpegEncoder
+      .encode(image, EncoderOptions(Quality(82), restartInterval = 7, optimizeHuffmanTables = true))
+    assert(optimized.length < fixed.length, s"${optimized.length} was not below ${fixed.length}")
+    assertEquals(JpegDecoder.decode(optimized).dimensions, image.dimensions)
+    val external  = ImageIO.read(ByteArrayInputStream(optimized.asInstanceOf[Array[Byte]]))
+    assertEquals(external.getWidth -> external.getHeight, image.width -> image.height)

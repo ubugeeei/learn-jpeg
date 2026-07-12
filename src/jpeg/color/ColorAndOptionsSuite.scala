@@ -167,3 +167,25 @@ class ColorAndOptionsSuite extends munit.FunSuite:
       assertEquals(decoded.width     -> decoded.height, source.width     -> source.height)
       val external         = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
       assertEquals(external.getWidth -> external.getHeight, source.width -> source.height)
+
+  test("optimized Huffman tables reduce color output across sampling modes"):
+    val source = RgbImage(
+      128,
+      96,
+      for y <- 0 until 96; x <- 0 until 128 yield Rgb(x * 2, y * 2, (x * 5 + y * 3) & 0xff)
+    )
+    Seq(
+      ChromaSubsampling.FullResolution,
+      ChromaSubsampling.HalfHorizontal,
+      ChromaSubsampling.HalfBothAxes
+    ).foreach: mode =>
+      val fixed     = JpegEncoder.encode(
+        source,
+        EncoderOptions(Quality(85), mode, restartInterval = 5, optimizeHuffmanTables = false)
+      )
+      val optimized = JpegEncoder.encode(
+        source,
+        EncoderOptions(Quality(85), mode, restartInterval = 5, optimizeHuffmanTables = true)
+      )
+      assert(optimized.length < fixed.length)
+      assertEquals(JpegDecoder.decodeRgb(optimized).dimensions, source.dimensions)
