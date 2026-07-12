@@ -31,14 +31,16 @@ contain huge APP segments before SOF. The facade therefore limits total input
 bytes before the parser allocates and processes the immutable buffer:
 
 ```scala
-val options = DecoderOptions(maxInputBytes = 8 * 1024 * 1024)
+val options = DecoderOptions(
+  maxInputBytes = 8 * 1024 * 1024,
+  maxPixels = 24_000_000
+)
 val image = Jpeg.read(networkInput, options)
 ```
 
-This is one layer, not a complete denial-of-service policy. A production service
-should additionally limit decoded dimensions, total MCUs, CPU time, and concurrent
-decodes. Those controls belong in explicit options rather than undocumented global
-state.
+The pixel limit is checked immediately after SOF0 dimensions are parsed, before
+component planes are allocated. A production service should additionally limit
+CPU time and concurrent decodes outside the codec.
 
 ## Why decoding still buffers
 

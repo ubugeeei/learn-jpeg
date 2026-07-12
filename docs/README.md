@@ -46,6 +46,10 @@ keep the learner oriented inside the finished architecture.
 - canonical Huffman construction and entropy bit I/O;
 - baseline grayscale encoder and defensive decoder;
 - baseline 4:4:4 RGB/JFIF encoder;
+- baseline 4:2:0 RGB/JFIF encoder with edge-safe box filtering;
 - ImageIO interoperability and malformed-input tests.
+
+See the [support matrix](reference/support-matrix.md) for an exact distinction
+between implemented, explicitly rejected, and out-of-scope JPEG processes.
 
 Start at [No image expertise required](00-introduction/00-no-prerequisites.md).

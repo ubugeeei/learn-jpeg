@@ -39,9 +39,10 @@ the format specification.
 ## Deliberate scope
 
 The executable core implements 8-bit baseline sequential DCT with Huffman coding.
-Grayscale works in both directions. RGB encoding currently uses three full-size
-YCbCr components (4:4:4). Progressive scans, arithmetic coding, hierarchical mode,
-and lossless JPEG are separate processes—not switches hidden in this decoder.
+Grayscale works in both directions. RGB supports full-resolution 4:4:4 and common
+subsampled 4:2:0 encoding; the sampling-factor-driven decoder also accepts 4:2:2.
+Progressive scans, arithmetic coding, hierarchical mode, and lossless JPEG are
+separate processes—not switches hidden in this decoder.
 
 ## How to read this book
 

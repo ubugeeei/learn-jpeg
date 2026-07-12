@@ -18,11 +18,11 @@ reader can test, inspect, or open with an independent tool.
 | 10 | inverse pipeline | decode independently produced grayscale JPEGs |
 | 11 | quality scaling | trade file size for reconstruction error |
 | 12 | RGB to YCbCr | encode interoperable three-component JPEG |
-| 13 | chroma subsampling | implement MCU geometry for 4:2:0 |
+| 13 | chroma subsampling | implement MCU geometry for 4:2:0 ✓ |
 | 14 | restart intervals | recover synchronization within a scan |
 | 15 | progressive JPEG | retain coefficients across multiple scans |
 
-Milestones 0–12 are represented in the current source and tests. Later rows are
+Milestones 0–13 are represented in the current source and tests. Later rows are
 the visible implementation roadmap; the book will not pretend they already work.
 
 ## Two passes through the material

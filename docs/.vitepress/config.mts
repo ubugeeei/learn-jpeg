@@ -52,6 +52,7 @@ export default defineConfig({
         text: "Reference",
         items: [
           { text: "Specification map", link: "/reference/specification-map" },
+          { text: "Support matrix", link: "/reference/support-matrix" },
           { text: "Glossary", link: "/reference/glossary" }
         ]
       }

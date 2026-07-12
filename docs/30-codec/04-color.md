@@ -13,10 +13,8 @@ Cr =  0.500000 R - 0.418688 G - 0.081312 B + 128
 ## Why separate luma and chroma?
 
 Human vision is generally more sensitive to fine luminance detail than fine
-chrominance detail. Once separated, JPEG can quantize chroma differently and
-store fewer chroma samples. Our first color milestone deliberately does neither:
-it writes all three components at full resolution (4:4:4). This isolates color
-conversion and MCU ordering before resampling enters the picture.
+chrominance detail. Once separated, JPEG can store fewer chroma samples. The
+encoder supports both full-resolution 4:4:4 and half-width/half-height 4:2:0.
 
 ## Scala domain types
 
@@ -46,12 +44,12 @@ previous-DC values even though all components currently share Huffman table 0.
 Sharing is legal; common encoders use separate luminance and chrominance tables
 for better compression.
 
-## What 4:2:0 will change
+## What 4:2:0 changes
 
 For sampling factors `Y=2×2`, `Cb=1×1`, `Cr=1×1`, an MCU contains six blocks:
-four Y, one Cb, and one Cr. Chroma planes must be filtered and downsampled, frame
-edge extension happens in MCU geometry, and decoding must upsample chroma. That
-is a real architectural step, not a different constant in the current loop.
+four Y, one Cb, and one Cr. The encoder box-filters each 2×2 chroma neighborhood;
+the decoder upsamples by nearest neighbor. Odd edges repeat their closest sample.
+`ChromaSubsampling` makes this quality/size policy explicit.
 
 ## Executable checkpoint
 
