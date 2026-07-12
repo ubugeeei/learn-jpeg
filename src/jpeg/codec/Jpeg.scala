@@ -12,7 +12,13 @@ final case class DecoderOptions(
   require(maxPixels > 0, "maximum pixel count must be positive")
 
 /** Decoded pixels together with application metadata from the same bounded input. */
-final case class JpegDocument(image: DecodedImage, metadata: JpegMetadata)
+final case class JpegDocument(image: DecodedImage, metadata: JpegMetadata):
+  /** Applies Exif orientation explicitly, leaving stored pixels and metadata unchanged. */
+  def orientedImage: DecodedImage = metadata.exifOrientation.fold(image): orientation =>
+    image match
+      case DecodedImage.Grayscale(value) => DecodedImage
+          .Grayscale(ImageOrientation(value, orientation))
+      case DecodedImage.Color(value)     => DecodedImage.Color(ImageOrientation(value, orientation))
 
 /** Practical stream and filesystem facade around the pure in-memory codec.
   *

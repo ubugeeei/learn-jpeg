@@ -21,7 +21,7 @@ final case class JpegMetadata(
     applications: IndexedSeq[ApplicationSegment],
     comments: IndexedSeq[String],
     jfif: Option[JfifInfo],
-    exifOrientation: Option[Int],
+    exifOrientation: Option[ImageOrientation],
     iccProfile: Option[IArray[Byte]]
 )
 
@@ -116,7 +116,7 @@ object JpegMetadata:
         unsigned16(bytes, 10, littleEndian = false)
       ))
 
-  private def parseExifOrientation(segment: ApplicationSegment): Option[Int] =
+  private def parseExifOrientation(segment: ApplicationSegment): Option[ImageOrientation] =
     val bytes = segment.payload.asInstanceOf[Array[Byte]]
     if segment.marker != 0xe1 || bytes.length < 14 || !startsWith(bytes, "Exif\u0000\u0000") then
       None
@@ -138,7 +138,7 @@ object JpegMetadata:
           unsigned32(bytes, entry + 4, littleEndian) == 1
         then
           val value = unsigned16(bytes, entry + 8, littleEndian)
-          if value >= 1 && value <= 8 then Some(value) else None
+          ImageOrientation.fromExif(value)
         else None
       .nextOption()
 

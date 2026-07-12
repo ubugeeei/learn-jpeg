@@ -23,7 +23,7 @@ class MetadataSuite extends munit.FunSuite:
     )
     cases.foreach: (payload, expected) =>
       val metadata = JpegMetadata.inspect(inject(base, Seq(0xe1 -> payload)))
-      assertEquals(metadata.exifOrientation, Some(expected))
+      assertEquals(metadata.exifOrientation.map(_.exifValue), Some(expected))
 
   test("ICC chunks are assembled by sequence number rather than marker order"):
     val base     = JpegEncoder.encode(GrayImage(8, 8, Seq.fill(64)(80)))
@@ -63,7 +63,7 @@ class MetadataSuite extends munit.FunSuite:
     val encoded  = JpegEncoder.encode(GrayImage(11, 9, Seq.fill(99)(90)), EncoderOptions(), original)
     val restored = JpegMetadata.inspect(encoded)
     assertEquals(fingerprints(restored), fingerprints(original))
-    assertEquals(restored.exifOrientation, Some(8))
+    assertEquals(restored.exifOrientation, Some(ImageOrientation.Rotate90CounterClockwise))
     assertEquals(restored.iccProfile.get.toSeq, Seq[Byte](4, 5, 6))
 
   test("metadata writer rejects payloads above the JPEG segment limit"):
@@ -73,6 +73,17 @@ class MetadataSuite extends munit.FunSuite:
     val modified = metadata.copy(orderedSegments = IndexedSeq(MetadataSegment.Application(huge)))
     val error    = intercept[JpegError](JpegMetadata.embed(base, modified))
     assert(error.message.contains("segment limit"))
+
+  test("document applies orientation only when explicitly requested"):
+    val base     = JpegEncoder.encode(GrayImage(9, 7, Seq.fill(63)(100)))
+    val bytes    = inject(base, Seq(0xe1 -> exif(littleEndian = true, orientation = 6)))
+    val document = JpegDocument(JpegDecoder.decodeImage(bytes), JpegMetadata.inspect(bytes))
+    document.image match
+      case DecodedImage.Grayscale(image) => assertEquals(image.dimensions, Dimensions(9, 7))
+      case DecodedImage.Color(_)         => fail("expected grayscale source")
+    document.orientedImage match
+      case DecodedImage.Grayscale(image) => assertEquals(image.dimensions, Dimensions(7, 9))
+      case DecodedImage.Color(_)         => fail("expected oriented grayscale image")
 
   private def inject(base: IArray[Byte], segments: Seq[(Int, Array[Byte])]): IArray[Byte] =
     val source = base.asInstanceOf[Array[Byte]]
