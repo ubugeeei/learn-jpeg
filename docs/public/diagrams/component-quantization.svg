@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="300" viewBox="0 0 900 300" role="img" aria-labelledby="title desc">
+  <title id="title">Component-specific JPEG quantization</title>
+  <desc id="desc">The Y component selects luminance quantization table zero. Cb and Cr select chrominance quantization table one.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L0,6 L9,3 z" fill="#64748b"/></marker>
+    <style>.box{fill:#f8fafc;stroke:#334155;stroke-width:2}.luma{fill:#fef3c7;stroke:#b45309}.chroma{fill:#dbeafe;stroke:#1d4ed8}.label{font:600 20px system-ui,sans-serif;fill:#0f172a}.small{font:16px system-ui,sans-serif;fill:#334155}.line{stroke:#64748b;stroke-width:3;fill:none;marker-end:url(#arrow)}</style>
+  </defs>
+  <rect class="box" x="35" y="35" width="130" height="60" rx="10"/><text class="label" x="100" y="72" text-anchor="middle">Y blocks</text>
+  <rect class="box" x="35" y="120" width="130" height="60" rx="10"/><text class="label" x="100" y="157" text-anchor="middle">Cb blocks</text>
+  <rect class="box" x="35" y="205" width="130" height="60" rx="10"/><text class="label" x="100" y="242" text-anchor="middle">Cr blocks</text>
+  <path class="line" d="M165 65 H330"/><path class="line" d="M165 150 H330"/><path class="line" d="M165 235 H330"/>
+  <rect class="box luma" x="335" y="35" width="220" height="60" rx="10"/><text class="label" x="445" y="62" text-anchor="middle">DQT 0</text><text class="small" x="445" y="84" text-anchor="middle">Annex K.1 luminance</text>
+  <rect class="box chroma" x="335" y="120" width="220" height="145" rx="10"/><text class="label" x="445" y="177" text-anchor="middle">DQT 1</text><text class="small" x="445" y="202" text-anchor="middle">Annex K.2 chrominance</text>
+  <path class="line" d="M555 65 H730"/><path class="line" d="M555 192 H730"/>
+  <rect class="box" x="735" y="85" width="130" height="130" rx="10"/><text class="label" x="800" y="140" text-anchor="middle">Quantize</text><text class="small" x="800" y="170" text-anchor="middle">then zig-zag</text>
+</svg>

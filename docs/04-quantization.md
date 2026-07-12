@@ -24,8 +24,9 @@ usually receive smaller divisors because broad changes are visually important.
 High frequencies often receive larger divisors because fine detail can tolerate
 more rounding.
 
-T.81 Annex K.1 provides an **example** luminance table. It is not mandated by the
-format. This project uses it as a recognizable base table.
+[T.81 Annex K](https://www.w3.org/Graphics/JPEG/itu-t81.pdf) provides **example**
+luminance (K.1) and chrominance (K.2) tables. Neither is mandated by the format.
+This project uses both as recognizable base tables.
 
 ```scala
 quantized(i) = round(coefficients(i) / table(i))
@@ -65,6 +66,28 @@ entry to `1..255`.
 
 Quality 100 is still not the separate lossless JPEG process.
 
+## Why color uses two tables
+
+Y carries brightness structure, while Cb and Cr carry color difference. The eye
+is generally more sensitive to fine brightness edges than equally fine color
+changes. The Annex K chrominance table therefore reaches large divisors sooner.
+
+![Y selects DQT 0; Cb and Cr select DQT 1](./public/diagrams/component-quantization.svg)
+
+The encoder writes the scaled luminance table as DQT identifier 0 and the scaled
+chrominance table as identifier 1. SOF0 connects components to them explicitly:
+
+| component | meaning | SOF0 table selector |
+| --- | --- | ---: |
+| 1 | Y | 0 |
+| 2 | Cb | 1 |
+| 3 | Cr | 1 |
+
+This selection is independent of 4:4:4, 4:2:2, or 4:2:0 sampling. Sampling changes
+how many component blocks exist; quantization changes how accurately each block's
+frequencies survive. Keeping those decisions separate also ensures Huffman
+optimization counts the coefficients that will actually be written.
+
 ## Scala invariants
 
 `Block` ensures every table has exactly 64 entries. `Quality` is an opaque type,
@@ -75,5 +98,6 @@ selection visible to callers.
 ## Executable checkpoints
 
 Tests verify that natural→zig-zag→natural is the identity, quality 50 preserves
-Annex K, quality endpoints remain legal, and higher quality generally produces a
-larger stream for a textured image.
+both Annex K tables, DQT payloads use zig-zag order, SOF0 selects tables 0/1/1,
+quality endpoints remain legal, and higher quality generally produces a larger
+stream for a textured image.

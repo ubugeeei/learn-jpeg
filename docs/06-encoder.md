@@ -11,7 +11,7 @@ Y, Cb, Cr sample planes
 8×8 component blocks grouped into MCUs
   ↓ level shift and DCT
 frequency coefficients
-  ↓ quantize and zig-zag
+  ↓ quantize with a component-selected table and zig-zag
 mostly-zero integer sequences
   ↓ DC difference + AC run-length + Huffman
 entropy bits
@@ -33,6 +33,11 @@ any block transform.
 
 This separation allows chroma subsampling. Human vision usually tolerates lower
 spatial color resolution better than lower brightness resolution.
+
+The same observation also guides quantization. Y uses the scaled Annex K.1
+luminance table (DQT 0); Cb and Cr use the scaled Annex K.2 chrominance table
+(DQT 1). SOF0 stores those selectors, so the decoder never has to guess from
+component order. See [Quantization](./04-quantization.md#why-color-uses-two-tables).
 
 ## 4:4:4 versus 4:2:0
 
@@ -96,8 +101,9 @@ chroma resolution; 4:4:4 preserves color edges in diagrams and screenshots.
 
 ## Known encoder limitations
 
-The encoder writes optional restart intervals and image-specific Huffman tables
-for grayscale and every color sampling mode. It does not yet embed Exif/ICC
-metadata or emit progressive scans. These are recorded explicitly in
+The encoder writes optional restart intervals, component-specific quantization,
+and image-specific Huffman tables for grayscale and every color sampling mode.
+Its document API can preserve Exif/ICC/application metadata, but it does not emit
+progressive scans. These boundaries are recorded explicitly in
 the [support matrix](reference/support-matrix.md), not hidden behind a generic
 “JPEG supported” claim.

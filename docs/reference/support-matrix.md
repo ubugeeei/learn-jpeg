@@ -34,7 +34,7 @@ returns a domain error instead of producing corrupt pixels.
 | grayscale, one component | ✅ | ✅ | arbitrary dimensions |
 | JFIF YCbCr, three components | ✅ | ✅ | component identifiers 1, 2, 3 |
 | 4:4:4 sampling | ✅ | ✅ | full-resolution chroma |
-| 4:2:0 sampling | ✅ | ✅ | box-filter encode, nearest-neighbor decode |
+| 4:2:0 sampling | ✅ | ✅ | box-filter encode, centered bilinear decode |
 | 4:2:2 sampling | ✅ | ✅ | horizontal box-filter encode |
 | chroma upsampling | — | ✅ | centered bilinear default; nearest optional |
 | odd and partial MCU edges | ✅ | ✅ | nearest-edge extension |
@@ -48,7 +48,7 @@ returns a domain error instead of producing corrupt pixels.
 
 | Feature | Encode | Decode | Notes |
 |---|:---:|:---:|---|
-| 8-bit DQT | ✅ | ✅ | multiple table identifiers decode correctly |
+| 8-bit DQT | ✅ | ✅ | Y uses table 0; Cb/Cr use table 1; arbitrary identifiers decode |
 | 16-bit DQT | — | 🚫 | not used by baseline 8-bit encoder |
 | canonical DHT construction | ✅ | ✅ | T.81 Annex C |
 | independent DC/AC selectors | ✅ | ✅ | selectors read from SOS |
