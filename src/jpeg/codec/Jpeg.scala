@@ -11,6 +11,9 @@ final case class DecoderOptions(
   require(maxInputBytes > 0, "maximum input size must be positive")
   require(maxPixels > 0, "maximum pixel count must be positive")
 
+/** Decoded pixels together with application metadata from the same bounded input. */
+final case class JpegDocument(image: DecodedImage, metadata: JpegMetadata)
+
 /** Practical stream and filesystem facade around the pure in-memory codec.
   *
   * The codec core uses immutable byte arrays to keep parsing deterministic. This facade performs
@@ -30,6 +33,17 @@ object Jpeg:
 
   /** Reads a caller-owned stream with the default resource limit. */
   def read(input: InputStream): DecodedImage = read(input, DecoderOptions())
+
+  /** Reads pixels and metadata while opening the filesystem path only once. */
+  def readDocument(path: Path, options: DecoderOptions = DecoderOptions()): JpegDocument =
+    val input = Files.newInputStream(path)
+    try readDocument(input, options)
+    finally input.close()
+
+  /** Reads pixels and metadata without closing the caller-owned stream. */
+  def readDocument(input: InputStream, options: DecoderOptions): JpegDocument =
+    val bytes = readBounded(input, options.maxInputBytes)
+    JpegDocument(JpegDecoder.decodeImage(bytes, options.maxPixels), JpegMetadata.inspect(bytes))
 
   /** Reads color, promoting grayscale samples to equal RGB channels. */
   def readRgb(path: Path, options: DecoderOptions = DecoderOptions()): RgbImage =
