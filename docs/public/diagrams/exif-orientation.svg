@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="430" viewBox="0 0 900 430" role="img" aria-labelledby="title desc">
+  <title id="title">The eight Exif orientation transforms</title>
+  <desc id="desc">Eight labeled grids show how source values one through six move under every Exif orientation.</desc>
+  <rect width="900" height="430" rx="16" fill="#f6f7f9"/>
+  <g font-family="system-ui,sans-serif" fill="#202124" text-anchor="middle">
+    <text x="450" y="34" font-size="21" font-weight="600">stored 2×3 pixels: 1 2 / 3 4 / 5 6</text>
+    <g transform="translate(25 60)"><text x="95" y="18">1 Normal</text><rect x="45" y="30" width="100" height="120" fill="#dcecff" stroke="#68727c"/><text x="70" y="58">1  2</text><text x="70" y="93">3  4</text><text x="70" y="128">5  6</text></g>
+    <g transform="translate(235 60)"><text x="95" y="18">2 Mirror horizontal</text><rect x="45" y="30" width="100" height="120" fill="#e8e5ff" stroke="#68727c"/><text x="70" y="58">2  1</text><text x="70" y="93">4  3</text><text x="70" y="128">6  5</text></g>
+    <g transform="translate(445 60)"><text x="95" y="18">3 Rotate 180°</text><rect x="45" y="30" width="100" height="120" fill="#e2f4e7" stroke="#68727c"/><text x="70" y="58">6  5</text><text x="70" y="93">4  3</text><text x="70" y="128">2  1</text></g>
+    <g transform="translate(655 60)"><text x="95" y="18">4 Mirror vertical</text><rect x="45" y="30" width="100" height="120" fill="#fff0d8" stroke="#68727c"/><text x="70" y="58">5  6</text><text x="70" y="93">3  4</text><text x="70" y="128">1  2</text></g>
+    <g transform="translate(25 235)"><text x="95" y="18">5 Transpose</text><rect x="20" y="30" width="150" height="80" fill="#f9e2ea" stroke="#68727c"/><text x="95" y="62">1  3  5</text><text x="95" y="92">2  4  6</text></g>
+    <g transform="translate(235 235)"><text x="95" y="18">6 Rotate 90° CW</text><rect x="20" y="30" width="150" height="80" fill="#dcecff" stroke="#68727c"/><text x="95" y="62">5  3  1</text><text x="95" y="92">6  4  2</text></g>
+    <g transform="translate(445 235)"><text x="95" y="18">7 Transverse</text><rect x="20" y="30" width="150" height="80" fill="#e8e5ff" stroke="#68727c"/><text x="95" y="62">6  4  2</text><text x="95" y="92">5  3  1</text></g>
+    <g transform="translate(655 235)"><text x="95" y="18">8 Rotate 90° CCW</text><rect x="20" y="30" width="150" height="80" fill="#e2f4e7" stroke="#68727c"/><text x="95" y="62">2  4  6</text><text x="95" y="92">1  3  5</text></g>
+    <text x="450" y="400" font-size="14" fill="#5d646b">Orientations 5–8 exchange width and height.</text>
+  </g>
+</svg>

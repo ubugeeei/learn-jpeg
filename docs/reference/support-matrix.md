@@ -71,7 +71,7 @@ returns a domain error instead of producing corrupt pixels.
 | unknown APPn | ✅ | payload bytes and relative metadata order preserved |
 | COM comments | ✅ | raw bytes preserved; ISO-8859-1 string view exposed |
 | Adobe APP14 / CMYK | ◻ | four-component frames rejected |
-| orientation | ◻ | pixel matrix is not rotated from Exif |
+| orientation | ✅ | typed 1–8 transforms; explicit `orientedImage` application |
 
 ## API and robustness
 

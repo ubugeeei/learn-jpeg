@@ -46,8 +46,13 @@ endian (`II`) or big endian (`MM`). The inspector validates byte order, TIFF mag
 tag `0x0112`.
 
 Orientation values 1 through 8 describe flips and quarter-turns. The inspector
-reports the value but does not silently rotate pixels. Applying orientation changes
-dimensions and coordinate semantics, so it belongs in an explicit image operation.
+returns the `ImageOrientation` enum but does not silently rotate pixels.
+
+![All eight Exif orientation mappings for a non-square raster](/diagrams/exif-orientation.svg)
+
+`JpegDocument.orientedImage` applies the transform explicitly. Orientations 5–8
+exchange width and height. Separate overloads preserve complete grayscale samples
+or RGB pixels; channels are never rearranged independently.
 
 ## ICC profiles span multiple APP2 segments
 
