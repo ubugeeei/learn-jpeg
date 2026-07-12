@@ -10,8 +10,14 @@ final case class ApplicationSegment(marker: Int, payload: IArray[Byte]):
 /** Density metadata from a JFIF APP0 segment. */
 final case class JfifInfo(major: Int, minor: Int, densityUnit: Int, xDensity: Int, yDensity: Int)
 
+/** One metadata segment in its original file order. */
+enum MetadataSegment:
+  case Application(value: ApplicationSegment)
+  case Comment(payload: IArray[Byte])
+
 /** Metadata available without entropy-decoding image pixels. */
 final case class JpegMetadata(
+    orderedSegments: IndexedSeq[MetadataSegment],
     applications: IndexedSeq[ApplicationSegment],
     comments: IndexedSeq[String],
     jfif: Option[JfifInfo],
@@ -27,6 +33,7 @@ object JpegMetadata:
     cursor.expect(0xd8)
     val applications = mutable.ArrayBuffer.empty[ApplicationSegment]
     val comments     = mutable.ArrayBuffer.empty[String]
+    val ordered      = mutable.ArrayBuffer.empty[MetadataSegment]
     var reachedScan  = false
     while !reachedScan && cursor.remaining > 0 do
       val marker = cursor.marker()
@@ -36,21 +43,66 @@ object JpegMetadata:
           reachedScan = true
         case 0xd9                                                 => reachedScan = true
         case code if code >= 0xe0 && code <= 0xef                 =>
-          applications += ApplicationSegment(code, cursor.segment())
+          val segment = ApplicationSegment(code, cursor.segment())
+          applications += segment
+          ordered += MetadataSegment.Application(segment)
         case 0xfe                                                 =>
-          val bytes = cursor.segment().asInstanceOf[Array[Byte]]
+          val payload = cursor.segment()
+          val bytes   = payload.asInstanceOf[Array[Byte]]
           comments += String(bytes, StandardCharsets.ISO_8859_1)
+          ordered += MetadataSegment.Comment(payload)
         case code if code == 0xd8 || code >= 0xd0 && code <= 0xd7 => ()
         case _                                                    => cursor.segment()
     if !reachedScan then throw JpegError("JPEG metadata has no SOS or EOI marker")
     val segments     = applications.toIndexedSeq
     JpegMetadata(
+      ordered.toIndexedSeq,
       segments,
       comments.toIndexedSeq,
       segments.iterator.flatMap(parseJfif).nextOption(),
       segments.iterator.flatMap(parseExifOrientation).nextOption(),
       assembleIcc(segments)
     )
+
+  /** Inserts metadata after SOI while avoiding a duplicate generated JFIF segment. */
+  def embed(encoded: IArray[Byte], metadata: JpegMetadata): IArray[Byte] =
+    val source    = encoded.asInstanceOf[Array[Byte]]
+    if source.length < 4 || source(0) != 0xff.toByte || source(1) != 0xd8.toByte then
+      throw JpegError("metadata can only be embedded in a JPEG stream")
+    val insertion = jfifEnd(source).getOrElse(2)
+    val output    = java.io.ByteArrayOutputStream(source.length)
+    output.write(source, 0, insertion)
+    metadata.orderedSegments.foreach:
+      case MetadataSegment.Application(segment) if !isJfif(segment) =>
+        writeSegment(output, segment.marker, segment.payload)
+      case MetadataSegment.Application(_)                           => ()
+      case MetadataSegment.Comment(payload)                         => writeSegment(output, 0xfe, payload)
+    output.write(source, insertion, source.length - insertion)
+    IArray.from(output.toByteArray)
+
+  private def writeSegment(
+      output: java.io.ByteArrayOutputStream,
+      marker: Int,
+      payload: IArray[Byte]
+  ): Unit =
+    if payload.length > 65533 then throw JpegError("metadata payload exceeds JPEG segment limit")
+    output.write(0xff)
+    output.write(marker)
+    output.write((payload.length + 2) >>> 8)
+    output.write((payload.length + 2) & 0xff)
+    output.write(payload.asInstanceOf[Array[Byte]])
+
+  private def isJfif(segment: ApplicationSegment): Boolean = segment.marker == 0xe0 &&
+    startsWith(segment.payload.asInstanceOf[Array[Byte]], "JFIF\u0000")
+
+  private def jfifEnd(source: Array[Byte]): Option[Int] =
+    if source.length < 11 || source(2) != 0xff.toByte || source(3) != 0xe0.toByte then None
+    else
+      val length = (source(4) & 0xff) << 8 | (source(5) & 0xff)
+      val end    = 4 + length
+      if length >= 7 && end <= source.length && startsWith(source.drop(6), "JFIF\u0000") then
+        Some(end)
+      else None
 
   private def parseJfif(segment: ApplicationSegment): Option[JfifInfo] =
     val bytes = segment.payload.asInstanceOf[Array[Byte]]

@@ -68,6 +68,13 @@ object Jpeg:
 
   def write(image: RgbImage, path: Path): Unit = write(image, path, EncoderOptions())
 
+  /** Re-encodes a document while preserving its ordered APP and COM metadata. */
+  def write(document: JpegDocument, path: Path, options: EncoderOptions = EncoderOptions()): Unit =
+    val bytes = document.image match
+      case DecodedImage.Grayscale(image) => JpegEncoder.encode(image, options, document.metadata)
+      case DecodedImage.Color(image)     => JpegEncoder.encode(image, options, document.metadata)
+    writeBytes(bytes, path)
+
   def write(image: GrayImage, output: OutputStream, options: EncoderOptions): Unit = output
     .write(JpegEncoder.encode(image, options).asInstanceOf[Array[Byte]])
 

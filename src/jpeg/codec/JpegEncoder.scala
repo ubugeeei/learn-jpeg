@@ -31,6 +31,10 @@ object JpegEncoder:
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
+  /** Encodes grayscale pixels and reinserts ordered application metadata. */
+  def encode(image: GrayImage, options: EncoderOptions, metadata: JpegMetadata): IArray[Byte] =
+    JpegMetadata.embed(encode(image, options), metadata)
+
   /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
     val quantizer          = options.quality.scale(Quantization.Luminance)
@@ -86,6 +90,10 @@ object JpegEncoder:
     IArray.from(out.toByteArray)
 
   def encode(image: RgbImage): IArray[Byte] = encode(image, EncoderOptions())
+
+  /** Encodes color pixels and reinserts ordered application metadata. */
+  def encode(image: RgbImage, options: EncoderOptions, metadata: JpegMetadata): IArray[Byte] =
+    JpegMetadata.embed(encode(image, options), metadata)
 
   private def entropyTables(scan: PreparedScan, optimize: Boolean): (HuffmanTable, HuffmanTable) =
     if optimize then

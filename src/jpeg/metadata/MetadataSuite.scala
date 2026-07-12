@@ -51,6 +51,29 @@ class MetadataSuite extends munit.FunSuite:
       case DecodedImage.Color(_)         => fail("expected grayscale document")
     assertEquals(document.metadata.comments, IndexedSeq("hello"))
 
+  test("re-encoding preserves Exif, ICC, unknown APP, and COM bytes in order"):
+    val base     = JpegEncoder.encode(GrayImage(11, 9, Seq.fill(99)(90)))
+    val segments = Seq(
+      0xe1 -> exif(littleEndian = true, orientation = 8),
+      0xfe -> Array[Byte](0, 0x7f, 0xff.toByte),
+      0xed -> Array[Byte](9, 8, 7),
+      0xe2 -> iccChunk(1, 1, Array[Byte](4, 5, 6))
+    )
+    val original = JpegMetadata.inspect(inject(base, segments))
+    val encoded  = JpegEncoder.encode(GrayImage(11, 9, Seq.fill(99)(90)), EncoderOptions(), original)
+    val restored = JpegMetadata.inspect(encoded)
+    assertEquals(fingerprints(restored), fingerprints(original))
+    assertEquals(restored.exifOrientation, Some(8))
+    assertEquals(restored.iccProfile.get.toSeq, Seq[Byte](4, 5, 6))
+
+  test("metadata writer rejects payloads above the JPEG segment limit"):
+    val base     = JpegEncoder.encode(GrayImage(8, 8, Seq.fill(64)(0)))
+    val metadata = JpegMetadata.inspect(base)
+    val huge     = ApplicationSegment(0xed, IArray.from(Array.fill[Byte](65534)(1)))
+    val modified = metadata.copy(orderedSegments = IndexedSeq(MetadataSegment.Application(huge)))
+    val error    = intercept[JpegError](JpegMetadata.embed(base, modified))
+    assert(error.message.contains("segment limit"))
+
   private def inject(base: IArray[Byte], segments: Seq[(Int, Array[Byte])]): IArray[Byte] =
     val source = base.asInstanceOf[Array[Byte]]
     val output = ByteArrayOutputStream()
@@ -63,6 +86,17 @@ class MetadataSuite extends munit.FunSuite:
       output.write(payload)
     output.write(source, 2, source.length - 2)
     IArray.from(output.toByteArray)
+
+  private def fingerprints(metadata: JpegMetadata): IndexedSeq[(Int, Seq[Byte])] = metadata
+    .orderedSegments.flatMap {
+      case MetadataSegment.Application(segment) if isJfif(segment) => None
+      case MetadataSegment.Application(segment)                    => Some(segment.marker -> segment.payload.toSeq)
+      case MetadataSegment.Comment(payload)                        => Some(0xfe -> payload.toSeq)
+    }
+
+  private def isJfif(segment: ApplicationSegment): Boolean = segment.marker == 0xe0 &&
+    new String(segment.payload.asInstanceOf[Array[Byte]].take(5), StandardCharsets.ISO_8859_1) ==
+    "JFIF\u0000"
 
   private def exif(littleEndian: Boolean, orientation: Int): Array[Byte] =
     val output = ByteArrayOutputStream()
