@@ -73,6 +73,19 @@ class CodecSuite extends munit.FunSuite:
     val error = intercept[JpegError](Jpeg.read(input, DecoderOptions(maxInputBytes = 128)))
     assert(error.message.contains("configured limit"))
 
+  test("decoder rejects dimensions beyond its pixel limit before allocating planes"):
+    val encoded = JpegEncoder.encode(GrayImage(8, 8, Seq.fill(64)(0))).asInstanceOf[Array[Byte]]
+      .clone()
+    val sof     = encoded.indices
+      .find(index => encoded(index) == 0xff.toByte && encoded(index + 1) == 0xc0.toByte).get
+    encoded(sof + 5) = 1
+    encoded(sof + 6) = 0
+    encoded(sof + 7) = 1
+    encoded(sof + 8) = 0
+    val error   = intercept[JpegError]:
+      JpegDecoder.decodeImage(IArray.from(encoded), maximumPixels = 1000)
+    assert(error.message.contains("configured limit"))
+
   test("stream facade does not close a caller-owned output"):
     val output = ByteArrayOutputStream()
     Jpeg.write(GrayImage(8, 8, Seq.fill(64)(128)), output, EncoderOptions())

@@ -35,7 +35,7 @@ object JpegDecoder:
       )
 
   /** Decodes while preserving whether the source frame was grayscale or color. */
-  def decodeImage(input: IArray[Byte]): DecodedImage =
+  def decodeImage(input: IArray[Byte], maximumPixels: Long = 100_000_000L): DecodedImage =
     val cursor               = Cursor(input.asInstanceOf[Array[Byte]])
     cursor.expectMarker(0xd8)
     var frame: Option[Frame] = None
@@ -46,7 +46,7 @@ object JpegDecoder:
         case 0xd9                                 => throw JpegError("EOI occurred before a scan")
         case 0xdb                                 => parseDqt(cursor.segment(), quantization)
         case 0xc4                                 => parseDht(cursor.segment(), huffman)
-        case 0xc0                                 => frame = Some(parseFrame(cursor.segment()))
+        case 0xc0                                 => frame = Some(parseFrame(cursor.segment(), maximumPixels))
         case code @ (0xc1 | 0xc2 | 0xc3 | 0xc5 | 0xc6 | 0xc7 | 0xc9 | 0xca | 0xcb | 0xcd | 0xce |
             0xcf) =>
           throw JpegError(f"unsupported JPEG frame marker FF$code%02X; only SOF0 is supported")
@@ -65,11 +65,13 @@ object JpegDecoder:
         case _                                    => cursor.skipSegment()
     throw JpegError("unreachable")
 
-  private def parseFrame(data: Cursor): Frame =
+  private def parseFrame(data: Cursor, maximumPixels: Long): Frame =
     if data.u8() != 8 then throw JpegError("only 8-bit sample precision is supported")
     val height     = data.u16()
     val width      = data.u16()
     val dimensions = Dimensions(width, height)
+    if width.toLong * height > maximumPixels then
+      throw JpegError(s"decoded image exceeds configured limit of $maximumPixels pixels")
     val count      = data.u8()
     if count != 1 && count != 3 then
       throw JpegError("only grayscale and three-component JPEG are supported")

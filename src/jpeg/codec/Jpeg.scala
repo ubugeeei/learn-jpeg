@@ -4,8 +4,12 @@ import java.io.{ByteArrayOutputStream, InputStream, OutputStream}
 import java.nio.file.{Files, Path}
 
 /** Resource limits applied before parsing untrusted input. */
-final case class DecoderOptions(maxInputBytes: Int = 64 * 1024 * 1024):
+final case class DecoderOptions(
+    maxInputBytes: Int = 64 * 1024 * 1024,
+    maxPixels: Long = 100_000_000L
+):
   require(maxInputBytes > 0, "maximum input size must be positive")
+  require(maxPixels > 0, "maximum pixel count must be positive")
 
 /** Practical stream and filesystem facade around the pure in-memory codec.
   *
@@ -22,7 +26,7 @@ object Jpeg:
 
   /** Reads a caller-owned stream without closing it. */
   def read(input: InputStream, options: DecoderOptions): DecodedImage = JpegDecoder
-    .decodeImage(readBounded(input, options.maxInputBytes))
+    .decodeImage(readBounded(input, options.maxInputBytes), options.maxPixels)
 
   /** Reads a caller-owned stream with the default resource limit. */
   def read(input: InputStream): DecodedImage = read(input, DecoderOptions())
