@@ -21,7 +21,7 @@ class HuffmanOptimizerSuite extends munit.FunSuite:
     val frequencies = (0 until 40).map: symbol =>
       symbol -> (if symbol < 2 then 1_000_000L else 1L)
     .toMap
-    val table = HuffmanOptimizer.optimize(frequencies)
+    val table       = HuffmanOptimizer.optimize(frequencies)
     assertEquals(table.counts.drop(16).sum, 0)
     assertEquals(table.counts.sum, frequencies.size)
 

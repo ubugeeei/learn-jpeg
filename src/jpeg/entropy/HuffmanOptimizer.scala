@@ -30,10 +30,9 @@ object HuffmanOptimizer:
     HuffmanTable(bits.slice(1, 17).toSeq, orderedSymbols)
 
   private def buildDepths(frequencies: Map[Int, Long]): Map[Int, Int] =
-    given Ordering[Node] = Ordering.by[Node, (Long, Int)](node => (-node.weight, -node.minimum))
-    val queue = mutable.PriorityQueue.from(
-      frequencies.map((symbol, weight) => Node(weight, symbol, Some(symbol), None, None))
-    )
+    given Ordering[Node]                    = Ordering.by[Node, (Long, Int)](node => (-node.weight, -node.minimum))
+    val queue                               = mutable.PriorityQueue
+      .from(frequencies.map((symbol, weight) => Node(weight, symbol, Some(symbol), None, None)))
     while queue.size > 1 do
       val left  = queue.dequeue()
       val right = queue.dequeue()
@@ -44,7 +43,7 @@ object HuffmanOptimizer:
         Some(left),
         Some(right)
       ))
-    val result = mutable.Map.empty[Int, Int]
+    val result                              = mutable.Map.empty[Int, Int]
     def visit(node: Node, depth: Int): Unit = node.symbol match
       case Some(symbol) => result(symbol) = math.max(1, depth)
       case None         =>
@@ -54,22 +53,19 @@ object HuffmanOptimizer:
     result.toMap
 
   /** Rebalances overly deep leaves while preserving the Kraft sum (T.81 K.2, Figure K.1). */
-  private def limitCodeLengths(bits: Array[Int]): Unit =
-    for length <- 32 to 17 by -1 do
-      while bits(length) > 0 do
-        val shorter = (length - 2 to 1 by -1).find(bits(_) > 0).getOrElse(
-          throw JpegError("cannot limit Huffman code lengths")
-        )
-        bits(length) -= 2
-        bits(length - 1) += 1
-        bits(shorter + 1) += 2
-        bits(shorter) -= 1
+  private def limitCodeLengths(bits: Array[Int]): Unit = for length <- 32 to 17 by -1 do
+    while bits(length) > 0 do
+      val shorter = (length - 2 to 1 by -1).find(bits(_) > 0)
+        .getOrElse(throw JpegError("cannot limit Huffman code lengths"))
+      bits(length) -= 2
+      bits(length - 1) += 1
+      bits(shorter + 1) += 2
+      bits(shorter) -= 1
 
-  private final case class Node(
+  final private case class Node(
       weight: Long,
       minimum: Int,
       symbol: Option[Int],
       left: Option[Node],
       right: Option[Node]
   )
-
