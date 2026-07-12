@@ -1,10 +1,10 @@
 package jpeg
 
-/** Reference forward and inverse DCT implementations.
+/** Separable forward and inverse DCT implementations.
   *
-  * The equations follow [[https://www.w3.org/Graphics/JPEG/itu-t81.pdf T.81 A.3.3 and Annex F]].
-  * Straightforward floating-point code is intentional: it makes the educational mapping visible and
-  * provides deterministic, well-tested behavior.
+  * The equations follow [[https://www.w3.org/Graphics/JPEG/itu-t81.pdf T.81 A.3.3 and Annex F]]. A
+  * two-pass row/column factorization evaluates the same equation with one quarter of the cosine
+  * products required by a direct four-loop implementation.
   */
 object Dct:
   private val cosine                       = Array.tabulate(8, 8)((frequency, position) =>
@@ -13,30 +13,40 @@ object Dct:
   private inline def scale(i: Int): Double = if i == 0 then 1.0 / math.sqrt(2) else 1.0
 
   /** Level-shifts unsigned samples by 128 and computes the two-dimensional FDCT. */
-  def forward(samples: Block): Block = Block(
-    for
-      v <- 0 until 8
-      u <- 0 until 8
-    yield math.round(
-      0.25 * scale(u) * scale(v) *
-        (for
-          y <- 0 until 8
-          x <- 0 until 8
-        yield (samples(y, x) - 128) * cosine(u)(x) * cosine(v)(y)).sum
-    ).toInt
-  )
+  def forward(samples: Block): Block =
+    val rows = Array.ofDim[Double](64)
+    for y <- 0 until 8; u <- 0 until 8 do
+      var sum = 0.0
+      var x   = 0
+      while x < 8 do
+        sum += (samples(y, x) - 128) * cosine(u)(x)
+        x += 1
+      rows(y * 8 + u) = sum
+    Block(for v <- 0 until 8; u <- 0 until 8 yield
+      var sum = 0.0
+      var y   = 0
+      while y < 8 do
+        sum += rows(y * 8 + u) * cosine(v)(y)
+        y += 1
+      math.round(0.25 * scale(u) * scale(v) * sum).toInt)
 
   /** Computes the IDCT and reverses the level shift, clamping to 8-bit samples. */
-  def inverse(coefficients: Block): Block = Block(for
-    y <- 0 until 8
-    x <- 0 until 8
-  yield
-    val value = 0.25 *
-      (for
-        v <- 0 until 8
-        u <- 0 until 8
-      yield scale(u) * scale(v) * coefficients(v, u) * cosine(u)(x) * cosine(v)(y)).sum
-    math.max(0, math.min(255, math.round(value + 128).toInt)))
+  def inverse(coefficients: Block): Block =
+    val rows = Array.ofDim[Double](64)
+    for v <- 0 until 8; x <- 0 until 8 do
+      var sum = 0.0
+      var u   = 0
+      while u < 8 do
+        sum += scale(u) * coefficients(v, u) * cosine(u)(x)
+        u += 1
+      rows(v * 8 + x) = sum
+    Block(for y <- 0 until 8; x <- 0 until 8 yield
+      var sum = 0.0
+      var v   = 0
+      while v < 8 do
+        sum += scale(v) * rows(v * 8 + x) * cosine(v)(y)
+        v += 1
+      math.max(0, math.min(255, math.round(0.25 * sum + 128).toInt)))
 
 /** Quantization tables and zig-zag serialization from T.81 Annex K and A.3.6. */
 object Quantization:

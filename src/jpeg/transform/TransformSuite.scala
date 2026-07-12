@@ -12,6 +12,16 @@ class TransformSuite extends munit.FunSuite:
       assert(math.abs(expected - actual) <= 1, s"$expected != $actual")
     )
 
+  test("separable FDCT agrees with the direct specification equation"):
+    val blocks = (0 until 20).map(seed =>
+      Block((0 until 64).map(index => (seed * 53 + index * 37 + index * index * 3) & 0xff))
+    )
+    blocks.foreach: block =>
+      val expected = directForward(block)
+      val actual   = Dct.forward(block)
+      expected.values.zip(actual.values).foreach: (reference, separated) =>
+        assert(math.abs(reference - separated) <= 1)
+
   test("zig-zag and natural order are inverses"):
     val source = Block(0 until 64)
     assertEquals(Quantization.natural(Quantization.zigZag(source)).values, source.values)
@@ -23,3 +33,11 @@ class TransformSuite extends munit.FunSuite:
     assertEquals(block(0, 7), 2)
     assertEquals(block(7, 0), 3)
     assertEquals(block(7, 7), 4)
+
+  private def directForward(samples: Block): Block =
+    def scale(value: Int): Double = if value == 0 then 1.0 / math.sqrt(2) else 1.0
+    Block(for v <- 0 until 8; u <- 0 until 8 yield
+      val sum = (for y <- 0 until 8; x <- 0 until 8
+      yield (samples(y, x) - 128) * math.cos((2 * x + 1) * u * math.Pi / 16.0) *
+        math.cos((2 * y + 1) * v * math.Pi / 16.0)).sum
+      math.round(0.25 * scale(u) * scale(v) * sum).toInt)
