@@ -36,6 +36,11 @@ enum ChromaSubsampling:
   /** One Cb and Cr sample per 2×2 pixels: JPEG sampling factors 2×2, 1×1, 1×1. */
   case HalfBothAxes
 
+/** Reconstruction filter for chroma planes smaller than luma. */
+enum ChromaUpsampling:
+  case Nearest
+  case Bilinear
+
 /** Validated policy choices for JPEG encoding. */
 final case class EncoderOptions(
     quality: Quality = Quality.Default,

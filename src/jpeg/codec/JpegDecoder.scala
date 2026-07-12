@@ -24,7 +24,10 @@ object JpegDecoder:
       throw JpegError("expected grayscale JPEG but found three components")
 
   /** Decodes color or promotes grayscale to equal RGB channels. */
-  def decodeRgb(input: IArray[Byte]): RgbImage = decodeImage(input) match
+  def decodeRgb(
+      input: IArray[Byte],
+      chromaUpsampling: ChromaUpsampling = ChromaUpsampling.Bilinear
+  ): RgbImage = decodeImage(input, chromaUpsampling = chromaUpsampling) match
     case DecodedImage.Color(image)     => image
     case DecodedImage.Grayscale(image) => RgbImage(
         image.width,
@@ -35,7 +38,11 @@ object JpegDecoder:
       )
 
   /** Decodes while preserving whether the source frame was grayscale or color. */
-  def decodeImage(input: IArray[Byte], maximumPixels: Long = 100_000_000L): DecodedImage =
+  def decodeImage(
+      input: IArray[Byte],
+      maximumPixels: Long = 100_000_000L,
+      chromaUpsampling: ChromaUpsampling = ChromaUpsampling.Bilinear
+  ): DecodedImage =
     val cursor               = Cursor(input.asInstanceOf[Array[Byte]])
     cursor.expectMarker(0xd8)
     var frame: Option[Frame] = None
@@ -64,7 +71,8 @@ object JpegDecoder:
             cursor.entropyUntilEoi(),
             quantization.toMap,
             huffman.toMap,
-            restartInterval
+            restartInterval,
+            chromaUpsampling
           )
         case code if code >= 0xd0 && code <= 0xd7 =>
           throw JpegError("restart marker outside entropy data")
@@ -149,7 +157,8 @@ object JpegDecoder:
       entropy: EntropyData,
       quantizers: Map[Int, Block],
       huffman: Map[(Int, Int), HuffmanTable],
-      restartInterval: Int
+      restartInterval: Int,
+      chromaUpsampling: ChromaUpsampling
   ): DecodedImage =
     val maxH           = frame.components.map(_.horizontal).max
     val maxV           = frame.components.map(_.vertical).max
@@ -201,8 +210,16 @@ object JpegDecoder:
       val yComponent                                        = byId.getOrElse(1, throw JpegError("YCbCr frame requires component 1"))
       val cbComponent                                       = byId.getOrElse(2, throw JpegError("YCbCr frame requires component 2"))
       val crComponent                                       = byId.getOrElse(3, throw JpegError("YCbCr frame requires component 3"))
-      def sample(component: Component, x: Int, y: Int): Int =
-        planes(component.id)(x * component.horizontal / maxH, y * component.vertical / maxV)
+      def sample(component: Component, x: Int, y: Int): Int = chromaUpsampling match
+        case ChromaUpsampling.Nearest  =>
+          planes(component.id)(x * component.horizontal / maxH, y * component.vertical / maxV)
+        case ChromaUpsampling.Bilinear => interpolate(
+            planes(component.id),
+            x,
+            y,
+            component.horizontal.toDouble / maxH,
+            component.vertical.toDouble / maxV
+          )
       DecodedImage.Color(RgbImage(
         frame.dimensions.width,
         frame.dimensions.height,
@@ -210,6 +227,26 @@ object JpegDecoder:
         yield YCbCr(sample(yComponent, x, y), sample(cbComponent, x, y), sample(crComponent, x, y))
           .toRgb
       ))
+
+  /** Bilinearly samples a centered lower-resolution component plane. */
+  private def interpolate(
+      plane: Plane,
+      outputX: Int,
+      outputY: Int,
+      horizontalScale: Double,
+      verticalScale: Double
+  ): Int =
+    val sourceX                     = (outputX + 0.5) * horizontalScale - 0.5
+    val sourceY                     = (outputY + 0.5) * verticalScale - 0.5
+    val left                        = math.floor(sourceX).toInt
+    val top                         = math.floor(sourceY).toInt
+    val xWeight                     = sourceX - left
+    val yWeight                     = sourceY - top
+    def sample(x: Int, y: Int): Int =
+      plane(math.max(0, math.min(plane.width - 1, x)), math.max(0, math.min(plane.height - 1, y)))
+    val upper                       = sample(left, top) * (1.0 - xWeight) + sample(left + 1, top) * xWeight
+    val lower                       = sample(left, top + 1) * (1.0 - xWeight) + sample(left + 1, top + 1) * xWeight
+    math.round(upper * (1.0 - yWeight) + lower * yWeight).toInt
 
   private def readBlock(
       input: BitReader,

@@ -6,7 +6,8 @@ import java.nio.file.{Files, Path}
 /** Resource limits applied before parsing untrusted input. */
 final case class DecoderOptions(
     maxInputBytes: Int = 64 * 1024 * 1024,
-    maxPixels: Long = 100_000_000L
+    maxPixels: Long = 100_000_000L,
+    chromaUpsampling: ChromaUpsampling = ChromaUpsampling.Bilinear
 ):
   require(maxInputBytes > 0, "maximum input size must be positive")
   require(maxPixels > 0, "maximum pixel count must be positive")
@@ -34,8 +35,11 @@ object Jpeg:
     finally input.close()
 
   /** Reads a caller-owned stream without closing it. */
-  def read(input: InputStream, options: DecoderOptions): DecodedImage = JpegDecoder
-    .decodeImage(readBounded(input, options.maxInputBytes), options.maxPixels)
+  def read(input: InputStream, options: DecoderOptions): DecodedImage = JpegDecoder.decodeImage(
+    readBounded(input, options.maxInputBytes),
+    options.maxPixels,
+    options.chromaUpsampling
+  )
 
   /** Reads a caller-owned stream with the default resource limit. */
   def read(input: InputStream): DecodedImage = read(input, DecoderOptions())
@@ -49,7 +53,10 @@ object Jpeg:
   /** Reads pixels and metadata without closing the caller-owned stream. */
   def readDocument(input: InputStream, options: DecoderOptions): JpegDocument =
     val bytes = readBounded(input, options.maxInputBytes)
-    JpegDocument(JpegDecoder.decodeImage(bytes, options.maxPixels), JpegMetadata.inspect(bytes))
+    JpegDocument(
+      JpegDecoder.decodeImage(bytes, options.maxPixels, options.chromaUpsampling),
+      JpegMetadata.inspect(bytes)
+    )
 
   /** Reads color, promoting grayscale samples to equal RGB channels. */
   def readRgb(path: Path, options: DecoderOptions = DecoderOptions()): RgbImage =

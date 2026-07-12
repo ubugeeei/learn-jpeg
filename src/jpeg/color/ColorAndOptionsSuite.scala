@@ -189,3 +189,30 @@ class ColorAndOptionsSuite extends munit.FunSuite:
       )
       assert(optimized.length < fixed.length)
       assertEquals(JpegDecoder.decodeRgb(optimized).dimensions, source.dimensions)
+
+  test("centered bilinear upsampling improves smooth 4:2:0 chroma reconstruction"):
+    val source                       = RgbImage(
+      64,
+      48,
+      for y <- 0 until 48; x <- 0 until 64 yield Rgb(x * 4, y * 5, (x * 2 + y * 2) & 0xff)
+    )
+    val encoded                      = JpegEncoder
+      .encode(source, EncoderOptions(Quality(95), ChromaSubsampling.HalfBothAxes))
+    val nearest                      = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Nearest)
+    val bilinear                     = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Bilinear)
+    def error(image: RgbImage): Long = (for y <- 0 until source.height; x <- 0 until source.width
+    yield
+      val expected = source(x, y)
+      val actual   = image(x, y)
+      math.abs(expected.red - actual.red) + math.abs(expected.green - actual.green) +
+        math.abs(expected.blue - actual.blue)
+    ).map(_.toLong).sum
+    assert(error(bilinear) < error(nearest))
+
+  test("full-resolution color is invariant across upsampling policies"):
+    val source  = RgbImage(9, 7, for y <- 0 until 7; x <- 0 until 9 yield Rgb(x * 20, y * 30, 90))
+    val encoded = JpegEncoder
+      .encode(source, EncoderOptions(Quality(90), ChromaSubsampling.FullResolution))
+    val nearest = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Nearest)
+    val smooth  = JpegDecoder.decodeRgb(encoded, ChromaUpsampling.Bilinear)
+    assertEquals(nearest.pixels.toSeq, smooth.pixels.toSeq)
