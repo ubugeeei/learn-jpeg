@@ -148,3 +148,22 @@ class ColorAndOptionsSuite extends munit.FunSuite:
       val sof   = bytes.indices
         .find(index => bytes(index) == 0xff.toByte && bytes(index + 1) == 0xc0.toByte).get
       assertEquals(bytes(sof + 11) & 0xff, expected)
+
+  test("restart intervals round-trip in every color sampling mode"):
+    val source = RgbImage(
+      35,
+      21,
+      for y <- 0 until 21; x <- 0 until 35 yield Rgb(x * 7, y * 11, (x * 3 + y * 5) & 0xff)
+    )
+    val modes  = Seq(
+      ChromaSubsampling.FullResolution,
+      ChromaSubsampling.HalfHorizontal,
+      ChromaSubsampling.HalfBothAxes
+    )
+    for mode <- modes; interval <- Seq(1, 2, 5) do
+      val encoded          = JpegEncoder
+        .encode(source, EncoderOptions(Quality(90), mode, restartInterval = interval))
+      val decoded          = JpegDecoder.decodeRgb(encoded)
+      assertEquals(decoded.width     -> decoded.height, source.width     -> source.height)
+      val external         = ImageIO.read(ByteArrayInputStream(encoded.asInstanceOf[Array[Byte]]))
+      assertEquals(external.getWidth -> external.getHeight, source.width -> source.height)

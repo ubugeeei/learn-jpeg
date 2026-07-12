@@ -27,7 +27,6 @@ object JpegEncoder:
 
   /** Encodes an RGB image as a three-component JFIF stream. */
   def encode(image: RgbImage, options: EncoderOptions): IArray[Byte] =
-    require(options.restartInterval == 0, "color restart intervals are not implemented yet")
     val quantizer  = options.quality.scale(Quantization.Luminance)
     val converted  = IndexedSeq
       .tabulate(image.height, image.width)((y, x) => YCbCr.fromRgb(image(x, y)))
@@ -68,9 +67,11 @@ object JpegEncoder:
     )
     dht(out, 0, 0, StandardTables.LuminanceDc)
     dht(out, 1, 0, StandardTables.LuminanceAc)
+    if options.restartInterval > 0 then segment(out, 0xdd, u16(options.restartInterval))
     segment(out, 0xda, Seq(3, 1, 0, 2, 0, 3, 0, 0, 63, 0))
     out.write(
-      colorEntropy(components, quantizer, options.chromaSubsampling).asInstanceOf[Array[Byte]]
+      colorEntropy(components, quantizer, options.chromaSubsampling, options.restartInterval)
+        .asInstanceOf[Array[Byte]]
     )
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
@@ -113,43 +114,47 @@ object JpegEncoder:
   private def colorEntropy(
       components: IndexedSeq[GrayImage],
       quantizer: Block,
-      subsampling: ChromaSubsampling
+      subsampling: ChromaSubsampling,
+      restartInterval: Int
   ): IArray[Byte] =
-    val bits       = BitWriter()
+    val output     = ByteArrayOutputStream()
+    var bits       = BitWriter()
     val previousDc = Array.fill(components.size)(0)
     val blocks     = components.map(_.blocks)
-    subsampling match
-      case ChromaSubsampling.FullResolution =>
-        for blockIndex <- blocks.head.indices; component <- components.indices do
-          previousDc(component) =
-            writeBlock(blocks(component)(blockIndex), quantizer, previousDc(component), bits)
-      case ChromaSubsampling.HalfHorizontal =>
-        writeSubsampledMcus(components, blocks, lumaBlocksHigh = 1, quantizer, previousDc, bits)
-      case ChromaSubsampling.HalfBothAxes   =>
-        writeSubsampledMcus(components, blocks, lumaBlocksHigh = 2, quantizer, previousDc, bits)
-    bits.result()
+    colorMcus(components, blocks, subsampling).zipWithIndex.foreach: (mcu, mcuIndex) =>
+      if restartInterval > 0 && mcuIndex > 0 && mcuIndex % restartInterval == 0 then
+        output.write(bits.result().asInstanceOf[Array[Byte]])
+        marker(output, 0xd0 + ((mcuIndex / restartInterval - 1) & 7))
+        bits = BitWriter()
+        java.util.Arrays.fill(previousDc, 0)
+      mcu.foreach: (component, block) =>
+        previousDc(component) = writeBlock(block, quantizer, previousDc(component), bits)
+    output.write(bits.result().asInstanceOf[Array[Byte]])
+    IArray.from(output.toByteArray)
 
-  /** Writes one interleaved MCU at a time for 2×1 or 2×2 luma sampling. */
-  private def writeSubsampledMcus(
+  /** Groups component blocks in the exact interleaved order required for each MCU. */
+  private def colorMcus(
       components: IndexedSeq[GrayImage],
       blocks: IndexedSeq[IndexedSeq[Block]],
-      lumaBlocksHigh: Int,
-      quantizer: Block,
-      previousDc: Array[Int],
-      bits: BitWriter
-  ): Unit =
-    val lumaColumns = components.head.dimensions.blockColumns
-    for
-      mcuY <- 0 until components(1).dimensions.blockRows
-      mcuX <- 0 until components(1).dimensions.blockColumns
-    do
-      for localY <- 0 until lumaBlocksHigh; localX <- 0 until 2 do
-        val index = (mcuY * lumaBlocksHigh + localY) * lumaColumns + mcuX * 2 + localX
-        previousDc(0) = writeBlock(blocks(0)(index), quantizer, previousDc(0), bits)
-      for component <- 1 to 2 do
-        val index = mcuY * components(component).dimensions.blockColumns + mcuX
-        previousDc(component) =
-          writeBlock(blocks(component)(index), quantizer, previousDc(component), bits)
+      subsampling: ChromaSubsampling
+  ): IndexedSeq[IndexedSeq[(Int, Block)]] = subsampling match
+    case ChromaSubsampling.FullResolution => blocks.head.indices
+        .map(index => components.indices.map(component => component -> blocks(component)(index)))
+    case mode                             =>
+      val lumaBlocksHigh = if mode == ChromaSubsampling.HalfBothAxes then 2 else 1
+      val lumaColumns    = components.head.dimensions.blockColumns
+      for
+        mcuY <- 0 until components(1).dimensions.blockRows
+        mcuX <- 0 until components(1).dimensions.blockColumns
+      yield
+        val luma   =
+          for localY <- 0 until lumaBlocksHigh; localX <- 0 until 2 yield
+            val index = (mcuY * lumaBlocksHigh + localY) * lumaColumns + mcuX * 2 + localX
+            0 -> blocks(0)(index)
+        val chroma = (1 to 2).map: component =>
+          val index = mcuY * components(component).dimensions.blockColumns + mcuX
+          component -> blocks(component)(index)
+        luma ++ chroma
 
   private def component(width: Int, height: Int, source: IndexedSeq[IndexedSeq[YCbCr]])(
       select: YCbCr => Int
