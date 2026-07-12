@@ -10,24 +10,25 @@ import java.io.ByteArrayOutputStream
   * unsupported color transforms cannot be selected accidentally.
   */
 object JpegEncoder:
-  def encode(image: GrayImage): IArray[Byte] =
+  def encode(image: GrayImage, options: EncoderOptions = EncoderOptions()): IArray[Byte] =
+    val quantizer = options.quality.scale(Quantization.Luminance)
     val out = ByteArrayOutputStream()
     marker(out, 0xd8)
     segment(out, 0xe0, Seq(0x4a,0x46,0x49,0x46,0,1,1,0,0,1,0,1,0,0))
-    segment(out, 0xdb, 0 +: Quantization.zigZag(Quantization.Luminance))
+    segment(out, 0xdb, 0 +: Quantization.zigZag(quantizer))
     segment(out, 0xc0, Seq(8) ++ u16(image.height) ++ u16(image.width) ++ Seq(1, 1, 0x11, 0))
     dht(out, tableClass = 0, id = 0, StandardTables.LuminanceDc)
     dht(out, tableClass = 1, id = 0, StandardTables.LuminanceAc)
     segment(out, 0xda, Seq(1, 1, 0, 0, 63, 0))
-    out.write(entropy(image).asInstanceOf[Array[Byte]])
+    out.write(entropy(image, quantizer).asInstanceOf[Array[Byte]])
     marker(out, 0xd9)
     IArray.from(out.toByteArray)
 
-  private def entropy(image: GrayImage): IArray[Byte] =
+  private def entropy(image: GrayImage, quantizer: Block): IArray[Byte] =
     val bits = BitWriter()
     var previousDc = 0
     image.blocks.foreach: samples =>
-      val coefficients = Quantization.quantize(Dct.forward(samples), Quantization.Luminance)
+      val coefficients = Quantization.quantize(Dct.forward(samples), quantizer)
       val ordered = Quantization.zigZag(coefficients)
       val difference = ordered.head - previousDc
       previousDc = ordered.head
