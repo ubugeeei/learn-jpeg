@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="250" viewBox="0 0 900 250" role="img" aria-labelledby="title desc">
+  <title id="title">Separable two-dimensional DCT</title>
+  <desc id="desc">An eight by eight sample block passes through eight row transforms and then eight column transforms to produce coefficients.</desc>
+  <rect width="900" height="250" rx="16" fill="#f6f7f9"/>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0l10 5-10 5z" fill="#626a73"/></marker></defs>
+  <g font-family="system-ui,sans-serif" fill="#202124" text-anchor="middle">
+    <g><rect x="40" y="55" width="170" height="120" rx="12" fill="#dcecff" stroke="#6b91bd"/><text x="125" y="105" font-size="19" font-weight="600">8×8 samples</text><text x="125" y="135" font-size="14">spatial values</text></g>
+    <g><rect x="285" y="55" width="170" height="120" rx="12" fill="#e8e5ff" stroke="#8c82bd"/><text x="370" y="98" font-size="19" font-weight="600">row pass</text><text x="370" y="126" font-size="14">8 transforms</text><text x="370" y="148" font-size="14">horizontal frequency</text></g>
+    <g><rect x="530" y="55" width="170" height="120" rx="12" fill="#e2f4e7" stroke="#70a17b"/><text x="615" y="98" font-size="19" font-weight="600">column pass</text><text x="615" y="126" font-size="14">8 transforms</text><text x="615" y="148" font-size="14">vertical frequency</text></g>
+    <g><rect x="775" y="55" width="85" height="120" rx="12" fill="#fff0d8" stroke="#b49059"/><text x="817" y="105" font-size="17" font-weight="600">64 DCT</text><text x="817" y="132" font-size="14">coefficients</text></g>
+    <text x="450" y="218" font-size="14" fill="#5d646b">Same T.81 equation, one quarter of the cosine products.</text>
+  </g>
+  <g stroke="#626a73" stroke-width="3" marker-end="url(#a)"><path d="M210 115h73"/><path d="M455 115h73"/><path d="M700 115h73"/></g>
+</svg>

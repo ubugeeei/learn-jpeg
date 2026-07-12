@@ -58,10 +58,15 @@ for the normative equations.
 
 ## How the Scala mirrors the equation
 
-`Dct` precomputes the cosine lookup table. `forward` then loops over output
-frequency `(u,v)` and sums all input positions `(x,y)`. This reference approach
-is slower than an integer fast DCT, but each loop variable maps directly to the
-standard and is therefore ideal for learning and testing.
+`Dct` precomputes the cosine lookup table. The two-dimensional cosine product is
+**separable**: transform every row, then transform every resulting column.
+
+![A two-dimensional DCT factored into row and column passes](/diagrams/separable-dct.svg)
+
+A direct implementation evaluates 64 outputs × 64 inputs, or 4,096 cosine
+products per block. Two one-dimensional passes evaluate 8×8×8 twice, or 1,024.
+The hot inner loops use preallocated primitive arrays and `while`, avoiding
+temporary collection allocation while keeping the equation recognizable.
 
 ```scala
 val coefficients: Block = Dct.forward(samples)
@@ -80,6 +85,11 @@ The deliberate, large loss happens in the next step: quantization.
 
 1. a block filled with 128 becomes 64 zero coefficients;
 2. representative samples survive FDCT→IDCT within one sample value.
+
+It also retains the direct four-loop specification equation as a test oracle.
+Twenty deterministic blocks require every separable coefficient to agree within
+one integer, so the optimization is checked against mathematics rather than only
+against its own inverse.
 
 If the first fails, check level shifting and scale factors. If only edges show
 large errors, check whether `(u,x)` and `(v,y)` were accidentally swapped.
